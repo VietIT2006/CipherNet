@@ -1,0 +1,36 @@
+# Cursor Rules for Vigen (Đề tài 10 - UDP Java System)
+
+You are an expert Java developer working on the "Vigen" project (Đề tài 10).
+Follow these mandatory project conventions:
+
+1. ARCHITECTURE & SPEC-DRIVEN:
+- Read `AGENTS.md` before doing any work.
+- Specs live in `architecture/specs/` (`SRS.md`, `udp-protocol.md`, `vigenere-and-io.md`).
+- Tasks live in `architecture/tasks/` (`<TASK_ID>.md`). Do not invent new tasks without reference.
+- Database schema lives in `architecture/database/schema.sql`.
+
+2. CORE LOGIC ISOLATION (HEADLESS FIRST):
+- All processing classes in `com.detai10.core.*` MUST NOT import `java.awt.*` or `javax.swing.*`.
+- Keep core logic 100% testable via JUnit 5 without a display server (for Linux CI).
+
+3. SWING CONCURRENCY & WORKER THREAD:
+- Never block the Swing Event Dispatch Thread (EDT).
+- DatagramSocket.receive() loop and file/DB I/O must run on dedicated background threads (`UdpServerWorker`).
+- All GUI updates must use `SwingUtilities.invokeLater()`.
+
+4. UDP PROTOCOL:
+- Healthcheck: PING <-> PONG (3 seconds client timeout).
+- Data packet format: `DATA|<mode>|<fileName>|<content>`.
+- Use `raw.split("\\|", 4)` so that `<content>` may safely contain pipe `|` characters.
+
+5. VIGENERE CIPHER & I/O:
+- Vigenère only shifts `[A-Za-z]`. Keep numbers, whitespace, punctuation invariant, and do not advance the key pointer for non-alphabetic characters.
+- Text Mode: `BufferedWriter`/`BufferedReader` with UTF-8.
+- Binary Mode: `DataOutputStream(BufferedOutputStream)` / `DataInputStream(BufferedInputStream)` with `writeUTF()` / `readUTF()`.
+
+6. DATABASE SAFETY:
+- Always use `PreparedStatement` with `?` parameters for SQL operations against table `lich_su_xu_ly`.
+
+7. TESTING:
+- Use JUnit 5 with `@TempDir` for testing FileHelper. Do not write test files to workspace roots.
+- Always run `./gradlew test` (or `.\scripts\test-headless.bat`) to verify.

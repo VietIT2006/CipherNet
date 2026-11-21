@@ -19,3 +19,15 @@ Kiểm chứng toàn bộ các lớp thuộc Core Logic (UdpProtocol, VigenereCi
 
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [ ] Báo cáo test JUnit 5 đạt 100% pass trên GitHub Actions CI và được lưu lại trong `architecture/verification/M2-core-logic.md`.
+
+## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
+- Nghiệm thu Milestone 2 (Core Logic).
+  - Chạy lệnh `./gradlew test` trên console, kiểm tra 100% test cases đều pass (xanh).
+  - Đo lường độ bao phủ (code coverage) của các lớp Core.
+  - Cập nhật log kiểm thử chi tiết và trạng thái nghiệm thu vào `architecture/verification/M2-core-logic.md`.
+
+---
+
+# SPRINT 3: GIAO DIỆN SWING & TÍCH HỢP UDP SOCKET
+
+<a id="srv-01"></a>

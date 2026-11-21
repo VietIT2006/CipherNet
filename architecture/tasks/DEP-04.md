@@ -19,3 +19,10 @@ Viết workflow chạy trên ubuntu-latest, cài đặt JDK 17, thực thi ./gra
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [ ] Workflow CI được kích hoạt và chạy xanh thành công khi push/PR vào nhánh develop/main.
 - [ ] Đảm bảo code sạch, có comment giải thích rõ ràng và tuân thủ quy chuẩn dự án.
+
+## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
+- Xây dựng file cấu hình CI `.github/workflows/java-ci.yml`.
+  - Tự động kích hoạt khi có `push` hoặc `pull_request` vào nhánh `main`.
+  - Môi trường thực thi: Ubuntu Latest (Headless Runner), cài đặt JDK 17 Eclipse Temurin.
+  - Các bước thực thi: Checkout code, cấp quyền thực thi cho `./gradlew`, biên dịch mã nguồn, chạy toàn bộ Unit Test bằng `./gradlew test --no-daemon`, tải lên Test Report Artifacts.
+  - Đảm bảo kiểm thử headless không phụ thuộc vào màn hình hiển thị đồ họa.

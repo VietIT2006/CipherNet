@@ -19,3 +19,12 @@ Sử dụng BufferedWriter và BufferedReader. Tự động tạo thư mục cha
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [ ] Ghi nội dung văn bản ra đĩa và đọc lại toàn vẹn nội dung không bị lỗi font.
 - [ ] Đảm bảo code sạch, có comment giải thích rõ ràng và tuân thủ quy chuẩn dự án.
+
+## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
+- **Ghi file văn bản (`writeTextFile(File file, String content)`):**
+    - Sử dụng `BufferedWriter` kết hợp `OutputStreamWriter` chỉ định bảng mã tường minh `StandardCharsets.UTF_8` (hoặc `Files.newBufferedWriter(path, StandardCharsets.UTF_8)`).
+    - Ghi toàn bộ nội dung chuỗi xuống đĩa, gọi `flush()` và đóng luồng tự động bằng `try-with-resources`.
+  - **Đọc file văn bản (`readTextFile(File file)`):**
+    - Sử dụng `BufferedReader` kết hợp `InputStreamReader` bảng mã `StandardCharsets.UTF_8`.
+    - Đọc toàn bộ nội dung dòng kèm ký tự xuống dòng `\n`, bảo toàn nguyên vẹn tiếng Việt có dấu.
+  - **Bảo đảm:** Ném `IOException` kèm thông báo ngữ cảnh khi file không tồn tại hoặc lỗi quyền truy cập.

@@ -19,3 +19,13 @@ Hàm findKeywordIndices(text, "HELLO") trả về List<Integer> đại diện ch
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [ ] Trả về danh sách chính xác các vị trí xuất hiện của HELLO.
 - [ ] Đảm bảo code sạch, có comment giải thích rõ ràng và tuân thủ quy chuẩn dự án.
+
+## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
+- **Tìm kiếm không phân biệt chữ hoa/chữ thường (Case-insensitive):**
+    - Từ khóa tìm kiếm: `"HELLO"` (khớp với `"Hello"`, `"hello"`, `"HeLLo"`, ...).
+  - **Thuật toán quét vị trí:**
+    - Sử dụng `String.indexOf("HELLO", fromIndex)` trên chuỗi đã chuyển thành uppercase (hoặc dùng Regex `Pattern.compile("(?i)HELLO")`).
+    - Lặp tìm kiếm bắt đầu từ `index = 0` và tăng bước `fromIndex = foundIndex + 1` cho đến khi hết chuỗi.
+  - **Đầu ra:**
+    - Trả về `List<Integer>` chứa tất cả các chỉ số index (0-based).
+    - Cung cấp phương thức `formatPositions(List<Integer> positions)` trả về chuỗi `"0, 15, 32"` nếu tìm thấy hoặc `"NOT_FOUND"` nếu danh sách rỗng.

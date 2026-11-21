@@ -1,36 +1,86 @@
-# Đề Tài 10 — Hướng Dẫn & Quy Chuẩn Phát Triển (Agent Instructions)
+# AGENTS.md — Quy Chuẩn & Chỉ Dẫn Dành Riêng Cho AI Agent (Agent Constitution)
 
-## 1. Phạm vi & Mục tiêu
-Dự án Đề tài 10 xây dựng hệ thống Client – Server bằng Java thông qua giao thức UDP Socket, hiện thực mã hóa/giải mã Vigenère, lưu trữ File 2 chế độ (Văn bản & Nhị phân), lưu trữ lịch sử xử lý vào CSDL qua JDBC, và tìm kiếm từ khóa `"HELLO"`. Áp dụng phương pháp làm việc chuẩn Clucky: Spec-driven & AI-ready development.
+Tài liệu này là **Hiến pháp Tác nghiệp (Agent Constitution)** của dự án **Đề tài 10 (Vigen UDP System)**. Mọi AI Agent (Gemini, Antigravity, Claude Code, Cursor, GitHub Copilot) khi tham gia phát triển dự án này **bắt buộc phải đọc và tuân thủ 100% các điều khoản dưới đây**.
 
-## 2. Cấu trúc thư mục (Repository Layout)
-- `architecture/`: Nguồn sự thật duy nhất (Single Source of Truth) về kiến trúc, tài liệu đặc tả, cơ sở dữ liệu, sơ đồ và nhiệm vụ.
-  - `specs/`: Tài liệu đặc tả kỹ thuật (`SRS.md`, `udp-protocol.md`, `vigenere-and-io.md`).
-  - `tasks/`: Danh sách các atomic tasks được đánh mã độc lập (`DEP-xx`, `CORE-xx`, `SRV-xx`, `UI-xx`, `VER-xx`).
-  - `diagrams/`: Sơ đồ thiết kế hệ thống định dạng Mermaid (`.mmd`).
-  - `database/`: Schema DDL (`schema.sql`) và dữ liệu kiểm thử mẫu (`sample_data.sql`).
-  - `verification/`: Bằng chứng nghiệm thu từng Sprint (`M1` đến `M4`).
-- `app/`: Toàn bộ mã nguồn ứng dụng (Core logic, Server GUI, Client GUI, Unit Test).
-- `.github/workflows/`: Quy trình CI/CD tự động hóa kiểm thử và đóng gói.
-- `scripts/`: Bộ kịch bản hỗ trợ khởi chạy, biên dịch và kiểm thử nhanh.
+---
 
-## 3. Quy tắc kiến trúc (Architecture Rules)
-- **Tách biệt Core Logic khỏi UI:** Tất cả logic xử lý dữ liệu (UDP parser, Vigenère cipher, File I/O, Keyword finder, Database DAO) phải nằm hoàn toàn trong package `core` và không được phụ thuộc vào Java Swing hay AWT. Điều này đảm bảo Unit Test chạy độc lập và xanh 100% trên môi trường CI Linux Headless.
-- **Không chặn luồng giao diện (Non-blocking GUI):** Việc lắng nghe socket UDP (`DatagramSocket.receive`) và xử lý I/O nặng trên Server phải thực hiện trên Worker Thread riêng biệt. Mọi cập nhật lên giao diện phải thông qua `SwingUtilities.invokeLater`.
-- **Giao thức UDP phi kết nối nhưng có kiểm soát:** Client thực hiện cơ chế Healthcheck Ping/Pong với timeout 3 giây trước khi cho phép vào giao diện chính.
-- **Bảo toàn dữ liệu I/O:**
-  - Chế độ Văn bản (`TEXT`): Sử dụng `BufferedWriter`/`BufferedReader` với charset `UTF-8`.
-  - Chế độ Nhị phân (`BINARY`): Sử dụng luồng định kiểu bọc đệm `DataOutputStream(BufferedOutputStream)` và `DataInputStream(BufferedInputStream)` với `writeUTF()`/`readUTF()`.
-- **An toàn CSDL:** Sử dụng `PreparedStatement` cho mọi thao tác SQL để chống tấn công SQL Injection.
+## 1. Phạm vi & Tuyên ngôn dự án (Mission Statement)
+- **Tên dự án:** Vigen — Hệ thống Client – Server Quản lý & Truyền nhận Dữ liệu Mã hóa qua Giao thức UDP.
+- **Phương pháp phát triển:** Spec-driven & AI-ready Development (phỏng theo chuẩn Clucky).
+- **Trọng tâm kỹ thuật:**
+  1. Giao thức mạng phi kết nối UDP (`DatagramSocket`, `DatagramPacket`).
+  2. Thuật toán mã hóa & giải mã Vigenère (bảo toàn ký tự số, ký hiệu và khoảng trắng).
+  3. Thao tác File I/O 2 chế độ: Văn bản (Text UTF-8) và Nhị phân định kiểu có đệm (Binary DataStream).
+  4. Thuật toán tìm kiếm tất cả vị trí xuất hiện của từ khóa `"HELLO"`.
+  5. Quản lý lịch sử xử lý và dữ liệu sinh viên qua JDBC (`PreparedStatement`).
 
-## 4. Quy tắc lập trình & Kiểm thử (Code & Test Rules)
-- **Chuẩn Java:** Sử dụng Java 17 LTS. Đặt tên package, class, method tuân thủ chuẩn Java Naming Conventions.
-- **Unit Test trước (TDD mindset):** Mỗi module thuộc Core Logic phải có Unit Test tương ứng bằng JUnit 5. Sử dụng `@TempDir` để test các hàm đọc/ghi file, không tạo file rác trong workspace khi chạy test.
-- **Xử lý ngoại lệ (Exception Handling):** Không nuốt ngoại lệ (empty catch block). Ghi log rõ ràng kèm thông tin ngữ cảnh.
-- **Quy ước Commit & Branch:**
-  - Tên nhánh: `feat/<TASK_ID>-<short-description>` (Ví dụ: `feat/CORE-02-vigenere-cipher`).
-  - Commit message: `[<TASK_ID>] <Action in imperative mood>` (Ví dụ: `[CORE-02] Implement Vigenere encryption and decryption`).
+---
 
-## 5. Quy trình xác minh & Bàn giao (Verification)
-- Sau mỗi Sprint, thực hiện kiểm chứng theo tiêu chí Definition of Done (DoD) được mô tả trong từng file `architecture/verification/M<x>-*.md`.
-- Bản phát hành cuối cùng (Release) được đóng gói thành 2 Fat JAR độc lập: `udp-server.jar` và `udp-client.jar`, kèm hướng dẫn chạy chi tiết trong `START.md` và `README.md`.
+## 2. Nguồn sự thật duy nhất (Single Source of Truth)
+Agent không được tự suy đoán hoặc sáng tạo ngoài phạm vi đã được đặc tả:
+1. **Đặc tả yêu cầu:** `architecture/specs/SRS.md`
+2. **Đặc tả giao thức UDP:** `architecture/specs/udp-protocol.md`
+3. **Đặc tả thuật toán & I/O:** `architecture/specs/vigenere-and-io.md`
+4. **Lược đồ CSDL:** `architecture/database/schema.sql`
+5. **Nhiệm vụ cụ thể từng task:** `architecture/tasks/<TASK_ID>.md`
+
+---
+
+## 3. Các quy tắc bất khả xâm phạm (Ironclad Architecture Rules)
+
+### 🔴 Quy tắc 1: Tách biệt hoàn toàn Core Logic khỏi UI (Headless First)
+- Toàn bộ các lớp trong package `com.detai10.core.*` (`UdpProtocol`, `VigenereCipher`, `FileHelper`, `KeywordFinder`, `DatabaseHelper`) **tuyệt đối không được import bất kỳ thư viện UI nào** (`java.awt.*`, `javax.swing.*`).
+- *Mục đích:* Đảm bảo Unit Test tự động (JUnit 5) chạy độc lập và xanh 100% trên môi trường CI Linux Headless (GitHub Actions).
+
+### 🔴 Quy tắc 2: Không chặn luồng giao diện (Non-blocking GUI)
+- Vòng lặp lắng nghe socket UDP (`DatagramSocket.receive`) và các tác vụ I/O/DB nặng trên Server bắt buộc phải thực thi trên một **Worker Thread riêng biệt** (`UdpServerWorker`).
+- Mọi thao tác cập nhật trạng thái, log, dữ liệu lên giao diện Swing phải được bọc trong:
+  ```java
+  SwingUtilities.invokeLater(() -> {
+      // Cập nhật JTable, JTextArea, JLabel tại đây
+  });
+  ```
+
+### 🔴 Quy tắc 3: Bóc tách gói tin an toàn (Safe Payload Parsing)
+- Khi phân tích gói tin dữ liệu `DATA|<mode>|<fileName>|<content>`, phải sử dụng:
+  ```java
+  String[] parts = rawMessage.split("\\|", 4);
+  ```
+- *Lý do:* Giới hạn tối đa 4 phần tử để cho phép `<content>` chứa các ký tự phân tách `|` mà không làm hỏng cấu trúc gói tin.
+
+### 🔴 Quy tắc 4: Bảo toàn ký tự trong Vigenère Cipher
+- Thuật toán mã hóa Vigenère **chỉ dịch chuyển chữ cái tiếng Anh** (`A-Z`, `a-z`).
+- Các ký tự số (`0-9`), khoảng trắng, dấu xuống dòng, dấu câu và ký tự đặc biệt **phải được giữ nguyên vẹn**, và con trỏ khóa (key index) **không được tăng bước** khi gặp các ký tự này.
+
+### 🔴 Quy tắc 5: Bảo toàn toàn vẹn dữ liệu trong File I/O
+- **Chế độ TEXT:** Sử dụng `BufferedWriter`/`BufferedReader` với bảng mã chỉ định tường minh `StandardCharsets.UTF_8`.
+- **Chế độ BINARY:** Sử dụng luồng định kiểu có đệm:
+  ```java
+  new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file))) // writeUTF
+  new DataInputStream(new BufferedInputStream(new FileInputStream(file)))    // readUTF
+  ```
+
+### 🔴 Quy tắc 6: An toàn CSDL (Zero SQL Injection)
+- Mọi câu lệnh SQL truy vấn và ghi dữ liệu phải dùng `PreparedStatement` với tham số `?`. Tuyệt đối không cộng chuỗi SQL.
+
+---
+
+## 4. Quy trình tác nghiệp 5 bước cho Agent (Agent Workflow)
+
+Mỗi khi nhận nhiệm vụ thực hiện một Task:
+1. **Bước 1 - Đọc Spec & Task:** Đọc file `architecture/tasks/<TASK_ID>.md` và các spec liên quan trong `architecture/specs/`.
+2. **Bước 2 - Tạo nhánh Git:** Tạo nhánh tính năng theo cú pháp `feat/<TASK_ID>-<mo-ta-ngan>`.
+3. **Bước 3 - Viết Test trước (TDD):** Viết unit test tương ứng trong `app/src/test/java/com/detai10/core/` (sử dụng `@TempDir` cho file test).
+4. **Bước 4 - Hiện thực Code:** Viết mã nguồn đáp ứng test và tuân thủ các quy tắc kiến trúc.
+5. **Bước 5 - Chạy Test & Nghiệm thu:**
+   - Chạy lệnh `./gradlew test` (hoặc `.\scripts\test-headless.bat`).
+   - Đảm bảo 100% test pass.
+   - Đối chiếu Definition of Done (DoD) trong task file.
+   - Commit với thông điệp: `[<TASK_ID>] <Hành động ở thể mệnh lệnh>`.
+
+---
+
+## 5. Quy tắc xử lý ngoại lệ (Exception Handling)
+- **Không nuốt ngoại lệ:** Tuyệt đối không để khối `catch` trống hoặc chỉ in `e.printStackTrace()`.
+- Ghi log có ngữ cảnh rõ ràng: `System.err.println("[ERROR] Lỗi khi xử lý gói tin UDP từ " + clientAddress + ": " + e.getMessage());`
+- Đóng tài nguyên an toàn: Sử dụng cú pháp `try-with-resources` cho toàn bộ Socket, Connection, Statement, ResultSet và Stream I/O.

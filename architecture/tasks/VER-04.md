@@ -20,3 +20,13 @@ Kiểm thử chịu tải nhẹ khi nhiều Client kết nối gửi dữ liệu
 
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [ ] Hồ sơ nghiệm thu bản phát hành hoàn thiện tại `architecture/verification/M4-release.md`.
+
+## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
+- **Kiểm thử tải nhẹ (Lightweight Stress Test):**
+    - Gửi liên tục 100 gói tin UDP từ nhiều luồng Client đồng thời.
+    - Đánh giá khả năng xử lý không nghẽn của `UdpServerWorker`.
+    - Kiểm tra tính toàn vẹn và không thất thoát bản ghi trong bảng `lich_su_xu_ly`.
+    - Đo lường thời gian xử lý trung bình mỗi gói tin (đạt tiêu chuẩn NFR-01: < 200ms).
+  - **Nghiệm thu bản Release:**
+    - Kiểm tra khởi chạy độc lập 2 file Fat JAR `udp-server.jar` và `udp-client.jar`.
+    - Hoàn tất biên bản nghiệm thu tổng thể Milestone 4 (Release Ready).

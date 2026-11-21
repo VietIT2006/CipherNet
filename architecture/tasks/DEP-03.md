@@ -19,3 +19,9 @@ Tạo bảng lich_su_xu_ly lưu IP Client, tên file, chế độ, nội dung g�
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [ ] Chạy thành công schema.sql và sample_data.sql trên MySQL/SQL Server không lỗi.
 - [ ] Đảm bảo code sạch, có comment giải thích rõ ràng và tuân thủ quy chuẩn dự án.
+
+## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
+- Thiết kế lược đồ CSDL phục vụ ghi log lịch sử và quản lý sinh viên:
+    1. Bảng `lich_su_xu_ly`: Lưu `id` (PK, Auto-increment), `client_ip`, `file_name`, `file_mode` (`TEXT`/`BINARY`), `original_content`, `encrypted_content`, `hello_positions`, `created_at` (Timestamp).
+    2. Bảng `sinh_vien`: Quản lý thông tin sinh viên gồm `ma_sv` (PK), `ho_ten`, `lop`, `email`, `ngay_sinh`.
+  - Viết file `schema.sql` (tương thích cả MySQL và H2 Embedded/In-memory) và `sample_data.sql` với các bản ghi mẫu hợp lệ.

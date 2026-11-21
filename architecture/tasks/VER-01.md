@@ -19,3 +19,15 @@ Kiểm chứng toàn diện các kết quả chuyển giao của Sprint 1, đả
 
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [x] Lưu bằng chứng chạy xanh workflow CI đầu tiên và import CSDL thành công vào file `architecture/verification/M1-foundation.md`.
+
+## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
+- Nghiệm thu chất lượng giai đoạn Milestone 1 (Foundation).
+  - Kiểm tra tính đầy đủ của tài liệu đặc tả, tính đúng đắn của schema SQL.
+  - Kiểm tra tính hợp lệ của workflow CI trên GitHub Actions và đảm bảo pipeline pass 100%.
+  - Cập nhật kết quả nghiệm thu, commit SHA và bằng chứng vào `architecture/verification/M1-foundation.md`.
+
+---
+
+# SPRINT 2: CORE LOGIC & KIỂM THỬ ĐƠN VỊ
+
+<a id="core-01"></a>
