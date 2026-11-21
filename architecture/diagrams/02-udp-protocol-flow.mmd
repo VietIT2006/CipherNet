@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor User as Người dùng Client
+    participant CF as ConnectFrame
+    participant CS as Client UDP Socket
+    participant SS as Server UDP Socket
+    participant SW as UdpServerWorker
+    participant CMF as ClientMainFrame
+
+    Note over User, SS: Giai đoạn 1: Healthcheck & Kết nối
+    User->>CF: Nhập IP, Port và nhấn 'Kết nối'
+    CF->>CS: Gửi DatagramPacket("PING")
+    CS->>SS: PING (UDP)
+    SS->>SW: Nhận gói PING
+    SW->>SS: Gửi DatagramPacket("PONG")
+    SS->>CS: PONG (UDP)
+    CS-->>CF: Nhận PONG trong < 3 giây
+    CF->>CMF: Ẩn ConnectFrame, mở ClientMainFrame
+
+    Note over User, SS: Giai đoạn 2: Gửi Dữ liệu & Nhận Kết quả
+    User->>CMF: Nhập tên file, nội dung, chọn Mode (TEXT/BINARY)
+    User->>CMF: Nhấn 'Gửi Dữ Liệu'
+    CMF->>CS: Đóng gói "DATA|mode|fileName|content"
+    CS->>SS: DATA (UDP)
+    SS->>SW: Xử lý (DB, Cipher, File I/O, Search)
+    SW->>SS: Đóng gói "RESULT|FOUND|0, 15"
+    SS->>CS: RESULT (UDP)
+    CS-->>CMF: Nhận kết quả
+    CMF->>User: Hiển thị danh sách vị trí từ khóa 'HELLO'

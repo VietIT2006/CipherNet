@@ -1,0 +1,25 @@
+flowchart TD
+    Start(["Nhận DatagramPacket tại Server"]) --> CheckType{"Phân loại gói tin"}
+    
+    CheckType -- "PING" --> SendPong["Gửi lại gói tin PONG cho Client"] --> End(["Kết thúc xử lý gói tin"])
+    
+    CheckType -- "DATA|mode|file|content" --> ParsePacket["UdpProtocol.parseDataPacket()"]
+    
+    ParsePacket --> SaveDB["1. Ghi nhận vào CSDL (bảng lich_su_xu_ly)"]
+    SaveDB --> Encrypt["2. VigenereCipher.encrypt(content, serverKey)"]
+    
+    Encrypt --> CheckMode{"3. Kiểm tra mode"}
+    CheckMode -- "TEXT" --> WriteText["FileHelper.writeTextFile(fileName, encrypted)"]
+    CheckMode -- "BINARY" --> WriteBin["FileHelper.writeBinaryFile(fileName, encrypted)"]
+    
+    WriteText --> ReadBackText["4. FileHelper.readTextFile(fileName)"]
+    WriteBin --> ReadBackBin["4. FileHelper.readBinaryFile(fileName)"]
+    
+    ReadBackText --> Decrypt["5. VigenereCipher.decrypt(readEncrypted, serverKey)"]
+    ReadBackBin --> Decrypt
+    
+    Decrypt --> Search["6. KeywordFinder.findAll(decrypted, 'HELLO')"]
+    
+    Search --> UpdateGUI["7. Cập nhật bảng Log & UI Server (SwingUtilities.invokeLater)"]
+    UpdateGUI --> SendResult["8. Đóng gói & gửi RESULT về Client IP/Port"]
+    SendResult --> End

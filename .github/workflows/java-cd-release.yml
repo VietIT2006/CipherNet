@@ -1,0 +1,47 @@
+name: Java CD Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./gradlew || chmod +x app/gradlew || true
+
+    - name: Build Fat JARs
+      run: |
+        if [ -f "gradlew" ]; then
+          ./gradlew shadowJar --no-daemon
+        else
+          cd app && ./gradlew shadowJar --no-daemon
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          build/libs/udp-server.jar
+          build/libs/udp-client.jar
+          app/build/libs/udp-server.jar
+          app/build/libs/udp-client.jar
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

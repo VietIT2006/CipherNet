@@ -1,0 +1,13 @@
+// Root build.gradle
+plugins {
+    id 'java' apply false
+}
+
+allprojects {
+    group = 'com.detai10'
+    version = '1.0.0'
+
+    repositories {
+        mavenCentral()
+    }
+}

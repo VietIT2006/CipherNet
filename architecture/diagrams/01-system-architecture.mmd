@@ -1,0 +1,45 @@
+graph TB
+    subgraph ClientApp["Ứng dụng Client (Java Swing)"]
+        UI_Connect["ConnectFrame\n(Nhập IP/Port, gửi PING)"]
+        UI_Main["ClientMainFrame\n(Nhập dữ liệu, chế độ, gửi DATA)"]
+        Client_Socket["DatagramSocket (Client UDP)"]
+        UI_Connect --> UI_Main
+        UI_Main --> Client_Socket
+    end
+
+    subgraph Network["Mạng Truyền Dẫn UDP"]
+        UDP_PingPong["PING / PONG\n(Healthcheck timeout 3s)"]
+        UDP_Data["DATA | mode | fileName | content\nRESULT | status | positions"]
+    end
+
+    subgraph ServerApp["Ứng dụng Server (Java Swing & Worker)"]
+        Server_Socket["DatagramSocket (Server UDP)"]
+        Worker["UdpServerWorker (Thread riêng)"]
+        Server_UI["ServerMainFrame\n(Quản lý Port, Key Vigenère, Log)"]
+        
+        subgraph CoreLogic["Tầng Core Logic (Headless)"]
+            Parser["UdpProtocol\n(Parse & Build Packet)"]
+            Cipher["VigenereCipher\n(Encrypt & Decrypt)"]
+            FileIO["FileHelper\n(Text: Buffer / Binary: DataStream)"]
+            Finder["KeywordFinder\n(Tìm vị trí 'HELLO')"]
+            DAO["DatabaseHelper\n(JDBC PreparedStatement)"]
+        end
+
+        Server_Socket --> Worker
+        Worker --> Parser
+        Worker --> DAO
+        Worker --> Cipher
+        Worker --> FileIO
+        Worker --> Finder
+        Worker --> Server_UI
+    end
+
+    subgraph Storage["Lưu Trữ"]
+        DB[("MySQL Database\n(lich_su_xu_ly)")]
+        Disk[("Hệ Thống File Đĩa\n(Chế độ TEXT / BINARY)")]
+    end
+
+    Client_Socket <--> UDP_PingPong <--> Server_Socket
+    Client_Socket <--> UDP_Data <--> Server_Socket
+    DAO --> DB
+    FileIO --> Disk

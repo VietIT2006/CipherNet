@@ -1,0 +1,74 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+dependencies {
+    // JDBC Driver MySQL
+    implementation 'com.mysql:mysql-connector-j:8.3.0'
+
+    // JUnit 5
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+application {
+    mainClass = 'com.detai10.server.ServerApp'
+}
+
+// Task đóng gói Fat JAR cho Server
+tasks.register('serverJar', Jar) {
+    archiveFileName = 'udp-server.jar'
+    manifest {
+        attributes 'Main-Class': 'com.detai10.server.ServerApp'
+    }
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Task đóng gói Fat JAR cho Client
+tasks.register('clientJar', Jar) {
+    archiveFileName = 'udp-client.jar'
+    manifest {
+        attributes 'Main-Class': 'com.detai10.client.ClientApp'
+    }
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Task shadowJar gom cả 2 Fat JAR
+tasks.register('shadowJar') {
+    dependsOn serverJar, clientJar
+}
+
+// Shortcut runServer và runClient
+tasks.register('runServer', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.detai10.server.ServerApp'
+}
+
+tasks.register('runClient', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.detai10.client.ClientApp'
+}

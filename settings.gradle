@@ -1,0 +1,2 @@
+rootProject.name = 'detai10-udp'
+include 'app'

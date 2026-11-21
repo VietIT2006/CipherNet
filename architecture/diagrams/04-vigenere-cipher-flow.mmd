@@ -1,0 +1,22 @@
+flowchart LR
+    subgraph Input["Dữ liệu đầu vào"]
+        Text["Bản rõ (Plaintext)\nVí dụ: 'HELLO World 2026'"]
+        Key["Khóa (Key)\nVí dụ: 'KEY'"]
+    end
+
+    subgraph Process["Xử lý từng ký tự"]
+        Iterate["Duyệt qua từng ký tự c trong văn bản"]
+        Check{"c là chữ cái (A-Z, a-z)?"}
+        Shift["Áp dụng bước dịch: (c + k) mod 26\nTăng chỉ mục khóa key_index++"]
+        Keep["Giữ nguyên ký tự c\nKhông tăng key_index"]
+    end
+
+    subgraph Output["Dữ liệu đầu ra"]
+        Cipher["Bản mã (Ciphertext)\nVí dụ: 'RIJVS Ambjv 2026'"]
+    end
+
+    Text --> Iterate
+    Key --> Iterate
+    Iterate --> Check
+    Check -- Đúng --> Shift --> Cipher
+    Check -- Sai --> Keep --> Cipher
