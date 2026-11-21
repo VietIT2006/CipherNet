@@ -15,23 +15,38 @@ Tài liệu này hướng dẫn chi tiết cách thiết lập môi trường, b
 
 ---
 
-## 2. Cấu hình & Khởi tạo Cơ sở dữ liệu
+## 2. Cấu hình & Khởi tạo Cơ sở dữ liệu Cục bộ (MySQL Local trên máy)
 
+> [!NOTE]
+> Dự án sử dụng hệ quản trị CSDL **MySQL chạy trực tiếp cục bộ trên máy** (`localhost:3306`), **không deploy lên cloud**. Dịch vụ `MySQL80` trên máy được sử dụng để lưu trữ.
+
+### Cách 1: Khởi tạo nhanh bằng script (Khuyên dùng trên Windows)
+Chạy script tự động [scripts/init-db.bat](file:///d:/đề_tài_số_10/scripts/init-db.bat):
+```cmd
+.\scripts\init-db.bat
+```
+*(Script sẽ hỏi mật khẩu root của MySQL trên máy bạn, sau đó tự động tạo database `detai10_db` và nạp toàn bộ bảng và dữ liệu mẫu).*
+
+### Cách 2: Khởi tạo thủ công qua MySQL CLI
 1. Đăng nhập vào MySQL:
    ```bash
    mysql -u root -p
    ```
 2. Tạo database và chạy script tạo bảng từ file [schema.sql](file:///d:/đề_tài_số_10/architecture/database/schema.sql):
    ```sql
-   CREATE DATABASE IF NOT EXISTS detai10_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   USE detai10_db;
    SOURCE architecture/database/schema.sql;
    SOURCE architecture/database/sample_data.sql;
    ```
-3. Cấu hình thông tin kết nối DB trong mã nguồn hoặc biến môi trường:
-   - `DB_URL`: `jdbc:mysql://localhost:3306/detai10_db?useSSL=false&serverTimezone=UTC`
-   - `DB_USER`: `root`
-   - `DB_PASS`: `<mật_khẩu_của_bạn>`
+
+### 3. Cấu hình file database.properties
+Mở file [app/src/main/resources/database.properties](file:///d:/đề_tài_số_10/app/src/main/resources/database.properties) và điền mật khẩu MySQL local của bạn:
+```properties
+db.host=localhost
+db.port=3306
+db.name=detai10_db
+db.user=root
+db.password=YOUR_LOCAL_MYSQL_PASSWORD
+```
 
 ---
 

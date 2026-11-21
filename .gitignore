@@ -57,9 +57,13 @@ temp/
 *.rar
 !gradle/wrapper/*.jar
 
-# Database files
+# Database files & local credentials
 *.db
 *.sqlite3
+database.properties
+!database.properties.example
+app/src/main/resources/database.properties
+!app/src/main/resources/database.properties.example
 
 # Local test output files
 test_output/

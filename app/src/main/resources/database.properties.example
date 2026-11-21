@@ -1,0 +1,7 @@
+# Cấu hình kết nối MySQL Localhost (Chạy trực tiếp trên máy, không deploy)
+db.host=localhost
+db.port=3306
+db.name=detai10_db
+db.user=root
+db.password=
+db.url=jdbc:mysql://localhost:3306/detai10_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
