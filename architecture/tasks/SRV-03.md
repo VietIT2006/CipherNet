@@ -1,36 +1,34 @@
-# SRV-03 — Tích hợp luồng xử lý gói DATA trên Server
+# SRV-03 — Tích hợp Core Processing Pipeline trên Server (Cipher, I/O, Search)
 
 - **Mã Task:** `SRV-03`
 - **Sprint:** 3
 - **Độ ưu tiên:** Cao
-- **Story Points (SP):** 5 SP
+- **Story Points (SP):** 2 SP
+- **Người thực hiện:** Thành viên 2 (Backend / Security)
 
 ---
 
 ## 1. Mục tiêu (Goal / User Story)
-Kết nối toàn diện quy trình xử lý dữ liệu hoàn chỉnh khi nhận gói DATA từ Client.
+Tích hợp chuỗi xử lý nghiệp vụ Core trên Server: Tiếp nhận dữ liệu gói tin -> Mã hóa Vigenère -> Lưu & Đọc kiểm chứng File -> Giải mã -> Tìm kiếm từ khóa "HELLO".
 
 ## 2. File liên quan (Affected Files)
-- `app/src/main/java/com/detai10/server/ServerApp.java`
+- `app/src/main/java/com/detai10/server/worker/UdpServerWorker.java`
+- `app/src/main/java/com/detai10/core/cipher/VigenereCipher.java`
+- `app/src/main/java/com/detai10/core/io/FileHelper.java`
+- `app/src/main/java/com/detai10/core/search/KeywordFinder.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
-Luồng xử lý: Nhận gói -> Lưu DB -> Mã hóa Vigenère -> Ghi file theo mode -> Đọc lại file -> Giải mã bằng Key trên UI -> Tìm vị trí HELLO -> Log UI -> Gửi gói RESULT phản hồi Client.
+- Nhận mảng tham số bóc tách từ gói `DATA|<mode>|<fileName>|<content>`.
+- Thực hiện mã hóa nội dung bằng `VigenereCipher.encrypt(content, serverKey)`.
+- Ghi file đã mã hóa theo chế độ `mode` (`TEXT` hoặc `BINARY`) vào thư mục `server_storage/` bằng `FileHelper`.
+- Đọc lại file vừa ghi để kiểm chứng tính toàn vẹn (Round-trip verification).
+- Giải mã lại nội dung đọc từ file bằng `VigenereCipher.decrypt(readContent, serverKey)`.
+- Quét tìm tất cả các vị trí xuất hiện của từ khóa `"HELLO"` trong chuỗi bằng `KeywordFinder.findPositions()`.
+- Trả về đối tượng kết quả trung gian để bàn giao cho khâu lưu CSDL và phản hồi mạng (SRV-04).
 
 ## 4. Tiêu chí hoàn thành (Definition of Done)
-- [ ] Toàn bộ chu trình hoạt động chính xác từ lúc nhận gói đến khi phản hồi cho Client.
-- [ ] Đảm bảo code sạch, có comment giải thích rõ ràng và tuân thủ quy chuẩn dự án.
+- [ ] Xử lý trọn vẹn chu trình Cipher -> File I/O -> Search trong thời gian < 100ms.
+- [ ] Bảo toàn toàn vẹn nội dung khi ghi xuống và đọc ngược lại từ file.
 
 ## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
-- **Chu trình xử lý trọn gói (End-to-End Processing Pipeline):**
-    1. Tiếp nhận gói tin `DATA|<mode>|<fileName>|<content>` từ Client.
-    2. Bóc tách an toàn 4 phần tử bằng `UdpProtocol.parsePacket()`.
-    3. Gọi `VigenereCipher.encrypt(content, serverKey)` để mã hóa nội dung.
-    4. Ghi nội dung đã mã hóa xuống thư mục lưu trữ của Server theo chế độ `mode`:
-       - `TEXT`: Ghi bằng `FileHelper.writeTextFile()`.
-       - `BINARY`: Ghi bằng `FileHelper.writeBinaryFile()`.
-    5. Đọc lại nội dung từ file vừa ghi để kiểm chứng tính toàn vẹn (Round-trip verification).
-    6. Giải mã nội dung đọc từ file bằng `VigenereCipher.decrypt(readContent, serverKey)` thu lại chuỗi gốc.
-    7. Quét tìm tất cả các vị trí xuất hiện của từ khóa `"HELLO"` trong chuỗi bằng `KeywordFinder.findPositions()`.
-    8. Tạo đối tượng `HistoryRecord` và lưu vào CSDL qua `DatabaseHelper.saveHistory()`.
-    9. Đóng gói kết quả thành `RESULT|FOUND|<positions>` (hoặc `RESULT|NOT_FOUND|...`) và gửi ngược lại cho Client qua `DatagramSocket.send()`.
-    10. Đẩy dữ liệu lên bảng `JTable` và ghi console log trên `ServerMainFrame`.
+- Khâu xử lý cốt lõi của Server: Đảm bảo dữ liệu nhận được từ Client luôn được mã hóa an toàn trước khi ghi đĩa, đồng thời kiểm tra lại tính đúng đắn trước khi bàn giao cho module lưu CSDL.

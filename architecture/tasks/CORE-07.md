@@ -1,31 +1,32 @@
-# CORE-07 — Viết bộ Unit Test (JUnit 5) & lớp CoreSelfCheck
+# CORE-07 — Viết bộ Unit Test JUnit 5 cho toàn bộ tầng Core
 
 - **Mã Task:** `CORE-07`
 - **Sprint:** 2
 - **Độ ưu tiên:** Cao
-- **Story Points (SP):** 3 SP
+- **Story Points (SP):** 2 SP
+- **Người thực hiện:** Thành viên 4 (Server / Network)
 
 ---
 
 ## 1. Mục tiêu (Goal / User Story)
-Xây dựng bộ kiểm thử tự động toàn diện cho các module Core Logic.
+Xây dựng bộ kiểm thử đơn vị tự động bằng JUnit 5 cho tất cả các lớp trong tầng Core Logic, đảm bảo độ bao phủ cao và chạy độc lập trên môi trường Linux Headless CI.
 
 ## 2. File liên quan (Affected Files)
-- `app/src/test/java/com/detai10/core/**, app/src/main/java/com/detai10/core/CoreSelfCheck.java`
+- `app/src/test/java/com/detai10/core/protocol/UdpProtocolTest.java`
+- `app/src/test/java/com/detai10/core/cipher/VigenereCipherTest.java`
+- `app/src/test/java/com/detai10/core/io/FileHelperTextTest.java`
+- `app/src/test/java/com/detai10/core/io/FileHelperBinaryTest.java`
+- `app/src/test/java/com/detai10/core/search/KeywordFinderTest.java`
+- `app/src/test/java/com/detai10/core/db/DatabaseHelperTest.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
-JUnit 5 cho UdpProtocolTest, VigenereCipherTest, FileHelperTest (dùng @TempDir), KeywordFinderTest, DatabaseHelperTest. Lớp CoreSelfCheck hỗ trợ chạy kiểm tra nhanh không cần test runner.
+- Kiểm thử toàn diện các ca biên: Chuỗi rỗng, null, ký tự đặc biệt, tiếng Việt UTF-8.
+- Sử dụng `@TempDir` của JUnit 5 cho các test đọc/ghi file để tự động xóa sạch file rác sau khi chạy.
+- Sử dụng CSDL H2 in-memory cho `DatabaseHelperTest` để không phụ thuộc vào dịch vụ CSDL ngoài.
 
 ## 4. Tiêu chí hoàn thành (Definition of Done)
-- [ ] 100% test pass trên Linux Headless CI không có Swing.
-- [ ] Đảm bảo code sạch, có comment giải thích rõ ràng và tuân thủ quy chuẩn dự án.
+- [ ] Chạy lệnh `./gradlew test` xanh 100%.
+- [ ] Tỷ lệ bao phủ kiểm thử (Test Coverage) tầng Core đạt trên 85%.
 
 ## 5. Mô tả chức năng chi tiết (Detailed Functional Specification)
-- **Bộ Unit Test tự động (JUnit 5):**
-    - `UdpProtocolTest`: Kiểm tra serialize/deserialize gói PING, PONG, DATA (có chứa ký tự `|`), RESULT, ERROR.
-    - `VigenereCipherTest`: Kiểm tra mã hóa và giải mã với chữ hoa, chữ thường, số, dấu cách, ký tự đặc biệt, kiểm tra ném lỗi khi key không hợp lệ.
-    - `FileHelperTextTest` & `FileHelperBinaryTest`: Sử dụng thư mục tạm `@TempDir` của JUnit 5 để kiểm tra tính toàn vẹn khi ghi và đọc lại file.
-    - `KeywordFinderTest`: Kiểm tra chuỗi rỗng, không có HELLO, có 1 HELLO, có nhiều HELLO nằm rải rác hoặc liên tiếp.
-    - `DatabaseHelperTest`: Kiểm tra ghi và đọc bản ghi trên H2 in-memory.
-  - **Lớp CoreSelfCheck:**
-    - Có hàm `main(String[] args)` thực thi nhanh chuỗi kiểm tra độc lập trên terminal không cần UI và không cần Gradle, in ra kết quả `[PASS]` xanh toàn bộ.
+- Nền tảng đảm bảo chất lượng phần mềm theo tôn chỉ Spec-driven: Mọi logic nghiệp vụ cốt lõi đều được tự động xác minh trước khi bước vào giai đoạn ghép nối giao diện.
