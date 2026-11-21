@@ -32,14 +32,16 @@ Agent không được tự suy đoán hoặc sáng tạo ngoài phạm vi đã �
 - Toàn bộ các lớp trong package `com.detai10.core.*` (`UdpProtocol`, `VigenereCipher`, `FileHelper`, `KeywordFinder`, `DatabaseHelper`) **tuyệt đối không được import bất kỳ thư viện UI nào** (`java.awt.*`, `javax.swing.*`).
 - *Mục đích:* Đảm bảo Unit Test tự động (JUnit 5) chạy độc lập và xanh 100% trên môi trường CI Linux Headless (GitHub Actions).
 
-### 🔴 Quy tắc 2: Không chặn luồng giao diện (Non-blocking GUI)
+### 🔴 Quy tắc 2: Không chặn luồng giao diện & Quy chuẩn Swing (Non-blocking GUI)
 - Vòng lặp lắng nghe socket UDP (`DatagramSocket.receive`) và các tác vụ I/O/DB nặng trên Server bắt buộc phải thực thi trên một **Worker Thread riêng biệt** (`UdpServerWorker`).
-- Mọi thao tác cập nhật trạng thái, log, dữ liệu lên giao diện Swing phải được bọc trong:
+- Phía Client, tác vụ gửi gói tin UDP và đợi phản hồi phải dùng `SwingWorker` để không làm đơ giao diện.
+- Mọi thao tác cập nhật trạng thái, log, dữ liệu lên giao diện Swing bắt buộc phải được bọc trong:
   ```java
   SwingUtilities.invokeLater(() -> {
       // Cập nhật JTable, JTextArea, JLabel tại đây
   });
   ```
+- Tuyệt đối không dùng `setLayout(null)`. Tuân thủ chi tiết quy tắc thiết kế giao diện tại [.agents/rules/07-ui-swing-guidelines.md](file:///d:/đề_tài_số_10/.agents/rules/07-ui-swing-guidelines.md) và [architecture/docs/UI_UX_DESIGN_GUIDELINES.md](file:///d:/đề_tài_số_10/architecture/docs/UI_UX_DESIGN_GUIDELINES.md).
 
 ### 🔴 Quy tắc 3: Bóc tách gói tin an toàn (Safe Payload Parsing)
 - Khi phân tích gói tin dữ liệu `DATA|<mode>|<fileName>|<content>`, phải sử dụng:

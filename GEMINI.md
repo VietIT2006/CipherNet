@@ -33,6 +33,8 @@ You must adhere to the following strict architectural rules:
 - Connection config: `app/src/main/resources/database.properties` (ignored by git).
 - Prevent SQL injection by strictly using `PreparedStatement` with `?` parameters for table `lich_su_xu_ly`.
 
-## 7. Non-blocking UI Threading
+## 7. Non-blocking UI Threading & Swing Standards
 - Socket listener loop `DatagramSocket.receive()` must run on a background worker thread (`UdpServerWorker`).
-- UI updates must be wrapped in `SwingUtilities.invokeLater()`.
+- Client UDP operations must run on `SwingWorker` with loading indicators.
+- All UI updates must be wrapped in `SwingUtilities.invokeLater()`.
+- Do NOT use absolute layout (`setLayout(null)`). See `.agents/rules/07-ui-swing-guidelines.md`.
