@@ -1,6 +1,5 @@
 // Root build.gradle
 plugins {
-    id 'java' apply false
 }
 
 allprojects {

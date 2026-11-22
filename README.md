@@ -20,7 +20,7 @@ Dự án hiện thực mô hình Client – Server phân tán sử dụng Java S
 
 | Thành phần | Công nghệ / Thư viện | Chi tiết sử dụng |
 | :--- | :--- | :--- |
-| **Ngôn ngữ** | Java 17 (LTS) | Phiên bản chuẩn cho toàn dự án |
+| **Ngôn ngữ** | Java 21 (LTS mới nhất) | Phiên bản chuẩn cho toàn dự án (Tương thích 17+) |
 | **Giao diện** | Java Swing | `ServerMainFrame`, `ConnectFrame`, `ClientMainFrame` |
 | **Mạng** | Java UDP Socket | `DatagramSocket`, `DatagramPacket` |
 | **I/O File** | Java I/O (2 chế độ) | `BufferedWriter`/`BufferedReader` (Text) & `DataOutputStream`/`DataInputStream` bọc Buffer (Binary) |
@@ -164,7 +164,7 @@ Dự án được chia thành **4 Sprint**, gồm **24 Tasks** với tổng số
 ## 🚀 8. Hướng dẫn cài đặt & Khởi chạy
 
 ### Yêu cầu môi trường
-- Java Development Kit (JDK) 17 trở lên.
+- Java Development Kit (JDK) 21 LTS (hoặc JDK 17 trở lên).
 - Quản lý dự án: Gradle hoặc Maven.
 - Hệ quản trị CSDL: MySQL hoặc SQL Server.
 

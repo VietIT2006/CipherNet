@@ -7,7 +7,7 @@
 - **Run Client:** `java -jar app/build/libs/udp-client.jar` (or `.\scripts\start-client.bat`)
 
 ## Key Architecture & Code Conventions
-- **Language:** Java 17 LTS, Gradle 8+ wrapper.
+- **Language:** Java 21 LTS (Latest LTS, compatible with Java 17+), Gradle 9.7.1 wrapper.
 - **Headless Core:** Package `com.detai10.core.*` contains pure logic with ZERO Swing/AWT imports.
 - **UDP Protocol:**
   - Handshake: `PING` <-> `PONG` (3s timeout).
