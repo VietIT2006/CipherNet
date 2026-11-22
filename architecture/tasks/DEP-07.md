@@ -4,7 +4,6 @@
 - **Sprint:** 4
 - **Độ ưu tiên:** Thấp
 - **Story Points (SP):** 2 SP
-- **Người thực hiện:** Thành viên 2 (Backend / Security)
 
 ---
 
@@ -22,7 +21,7 @@ Viết tài liệu hướng dẫn người dùng cuối và lập trình viên: 
   3. Cách chạy Server: `java -jar build/libs/udp-server.jar` hoặc `./gradlew runServer`.
   4. Cách chạy Client: `java -jar build/libs/udp-client.jar` hoặc `./gradlew runClient`.
   5. Kịch bản chạy thử nghiệm thực tế (Mã hóa văn bản chứa "HELLO", kiểm tra kết quả).
-- `README.md`: Giới thiệu kiến trúc hệ thống, danh mục công nghệ, bảng phân công nhiệm vụ 5 thành viên.
+- `README.md`: Giới thiệu kiến trúc hệ thống, danh mục công nghệ, sơ đồ hệ thống và hướng dẫn.
 
 ## 4. Tiêu chí hoàn thành (Definition of Done)
 - [ ] Người dùng mới có thể đọc START.md và khởi chạy thành công trong vòng 3 phút.

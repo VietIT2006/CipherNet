@@ -3,8 +3,7 @@
 - **Mã Task:** `CORE-07`
 - **Sprint:** 2
 - **Độ ưu tiên:** Cao
-- **Story Points (SP):** 2 SP
-- **Người thực hiện:** Thành viên 4 (Server / Network)
+- **Story Points (SP):** 3 SP
 
 ---
 
