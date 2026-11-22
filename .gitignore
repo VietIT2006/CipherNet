@@ -43,9 +43,14 @@ Thumbs.db
 
 # Logs & temp files
 *.log
-logs/
+logs/*
+!logs/.gitkeep
 temp/
 *.tmp
+
+# Storage
+server_storage/*
+!server_storage/.gitkeep
 
 # Executables & JARs
 *.jar
