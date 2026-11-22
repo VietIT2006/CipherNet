@@ -19,6 +19,22 @@
 
 ---
 
+## BẢNG PHÂN CÔNG 5 THÀNH VIÊN ĐƯỢC MỜI (TRELLO TEAM ALLOCATION)
+
+> **Người quản trị (Admin / Product Owner):** Việt Mai (`@vitmai4`) — Điều phối, giám sát và nghiệm thu chung (không nhận task trực tiếp).  
+> **Nguyên tắc phân chia:** Chia đều 100% cho 5 thành viên được mời trong nhóm Trello, mỗi người đảm nhiệm đúng 6 task.
+
+| STT | Thành viên | Trello Username | Vai trò chính | Số Task | Danh sách Task phụ trách |
+| :---: | :--- | :--- | :--- | :---: | :--- |
+| 1 | **Stephen Đức** | `@stephenduc` | DevOps & Tech Lead | 6 tasks | `DEP-01`, `DEP-04`, `CORE-01`, `VER-03`, `DEP-05`, `DEP-06` |
+| 2 | **Datt Võ** | `@dattvo` | Backend & Cryptography / I/O | 6 tasks | `DEP-02`, `CORE-02`, `CORE-03`, `CORE-04`, `SRV-03`, `DEP-07` |
+| 3 | **Nguyễn Nhựt** | `@nguynnht36` | Database Engineer & Search | 6 tasks | `DEP-03`, `CORE-05`, `CORE-06`, `SRV-04`, `UI-04`, `VER-04` |
+| 4 | **Giang Bùi** | `@giangbui57` | Server Networking & Server UI | 6 tasks | `VER-01`, `CORE-07`, `SRV-01`, `SRV-02`, `SRV-05`, `DEP-08` |
+| 5 | **nhmnhat161006.nvtroi2124** | `@nhmnhat161006nvtroi2124` | Client UI & Integration QA | 6 tasks | `DOC-01`, `CORE-08`, `VER-02`, `UI-01`, `UI-02`, `UI-03` |
+| **TỔNG** | **5 thành viên** | | | **30 tasks** | **Phân bổ đều 100%, mỗi người 6 task** |
+
+---
+
 # CHI TIẾT TỪNG SPRINT & TỪNG TASK
 
 ---
