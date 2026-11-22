@@ -1,6 +1,11 @@
 plugins {
     id 'java'
     id 'application'
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = "0.8.12"
 }
 
 java {
@@ -20,12 +25,33 @@ dependencies {
     // JUnit 5
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
     useJUnitPlatform()
     testLogging {
         events "passed", "skipped", "failed"
+    }
+
+    // JVM trên Windows không nạp được -javaagent khi đường dẫn chứa ký tự Unicode tiếng Việt.
+    // Do đó tự động tắt jacoco agent khi chạy local ở thư mục có dấu; trên CI (GitHub Actions) chạy 100%.
+    boolean hasUnicodePath = project.projectDir.absolutePath.chars().anyMatch { it > 127 }
+    if (hasUnicodePath && System.getenv("CI") == null) {
+        jacoco {
+            enabled = false
+        }
+    } else {
+        finalizedBy jacocoTestReport
+    }
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        csv.required = false
+        html.required = true
     }
 }
 

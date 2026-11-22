@@ -1,4 +1,4 @@
-name: Java CI
+name: Java CI & Coverage
 
 on:
   push:
@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, master, develop ]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   build-and-test:
@@ -25,22 +29,36 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew || chmod +x app/gradlew || true
 
-    - name: Run Headless Unit Tests with Gradle
+    - name: Run Headless Unit Tests & JaCoCo Coverage
       run: |
         if [ -f "gradlew" ]; then
-          ./gradlew test --no-daemon
+          ./gradlew test jacocoTestReport --no-daemon
         elif [ -f "app/gradlew" ]; then
-          cd app && ./gradlew test --no-daemon
+          cd app && ./gradlew test jacocoTestReport --no-daemon
         else
           echo "Building with gradle..."
-          gradle test --no-daemon
+          gradle test jacocoTestReport --no-daemon
         fi
 
-    - name: Archive Unit Test Results
+    - name: JaCoCo Code Coverage & PR Summary
+      id: jacoco
+      uses: madrapps/jacoco-report@v1.7.1
+      if: always()
+      with:
+        paths: ${{ github.workspace }}/app/build/reports/jacoco/test/jacocoTestReport.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        min-coverage-overall: 0
+        min-coverage-changed-files: 0
+        title: '📊 JaCoCo Code Coverage Summary'
+        update-comment: true
+
+    - name: Archive Test & JaCoCo Coverage HTML Report
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: unit-test-report
+        name: test-and-coverage-report
         path: |
           build/reports/tests/test/
           app/build/reports/tests/test/
+          build/reports/jacoco/test/html/
+          app/build/reports/jacoco/test/html/
