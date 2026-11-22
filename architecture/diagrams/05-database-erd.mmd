@@ -1,0 +1,21 @@
+erDiagram
+    lich_su_xu_ly {
+        int id PK "Khóa chính tự tăng"
+        varchar(50) client_ip "Địa chỉ IP của Client"
+        varchar(255) file_name "Tên file lưu trên máy chủ"
+        varchar(10) file_mode "Chế độ: TEXT hoặc BINARY"
+        text original_content "Chuỗi dữ liệu gốc nhận từ Client"
+        text encrypted_content "Dữ liệu sau khi mã hóa Vigenère"
+        varchar(255) hello_positions "Danh sách các index xuất hiện của HELLO"
+        timestamp created_at "Thời điểm Server xử lý bản ghi"
+    }
+
+    sinh_vien {
+        varchar(20) ma_sv PK "Mã số sinh viên (VD: B21DCCN001)"
+        varchar(100) ho_ten "Họ và tên đầy đủ sinh viên"
+        varchar(20) lop "Lớp sinh hoạt (VD: D21CQCN01-B)"
+        varchar(100) email "Email liên hệ PTIT"
+        date ngay_sinh "Ngày tháng năm sinh"
+    }
+
+    sinh_vien ||--o{ lich_su_xu_ly : "tác nhân gửi dữ liệu (tùy chọn)"

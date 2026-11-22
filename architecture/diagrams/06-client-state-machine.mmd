@@ -1,0 +1,21 @@
+stateDiagram-v2
+    [*] --> Disconnected : Khởi động ứng dụng (ConnectFrame)
+
+    Disconnected --> Connecting : Nhấn nút 'Kết nối' (Gửi PING)
+    Connecting --> Disconnected : Timeout 3s / Lỗi socket (Báo lỗi)
+    Connecting --> Connected : Nhận gói tin PONG (Mở ClientMainFrame)
+
+    Connected --> SendingData : Nhấn 'Gửi Dữ Liệu' (Khởi tạo SwingWorker)
+    
+    state SendingData {
+        [*] --> ValidatingInput : Kiểm tra rỗng file & content
+        ValidatingInput --> Packeting : Đóng gói DATA|mode|file|content
+        Packeting --> WaitingResult : Gửi UDP & Chờ phản hồi (timeout 5s)
+        WaitingResult --> [*] : Hoàn tất nhận RESULT / ERROR
+    }
+
+    SendingData --> Connected : Nhận RESULT (Hiển thị & Highlight 'HELLO')
+    SendingData --> Connected : Timeout 5s / Lỗi mạng (Hiển thị cảnh báo)
+
+    Connected --> Disconnected : Đóng cửa sổ / Ngắt kết nối
+    Disconnected --> [*] : Thoát chương trình

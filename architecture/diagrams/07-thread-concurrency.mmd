@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    participant UI_EDT as Client Swing EDT
+    participant ClientWorker as Client SwingWorker
+    participant ServerSocket as Server UDP Socket
+    participant ServerWorker as UdpServerWorker Thread
+    participant Server_EDT as Server Swing EDT
+
+    Note over UI_EDT, Server_EDT: Kiến trúc Đa luồng Non-blocking giữa Client và Server
+    UI_EDT->>ClientWorker: Khởi tạo luồng ngầm gửi dữ liệu
+    UI_EDT->>UI_EDT: Khóa nút 'Gửi', hiển thị trạng thái đang xử lý
+    ClientWorker->>ServerSocket: Gửi UDP DatagramPacket (gói DATA)
+    ServerSocket->>ServerWorker: Nhận packet trong vòng lặp vô tận (receive blocking)
+    
+    rect rgb(240, 248, 255)
+        Note over ServerWorker: ServerWorker xử lý nặng ngầm
+        ServerWorker->>ServerWorker: 1. Lưu CSDL MySQL (JDBC PreparedStatement)
+        ServerWorker->>ServerWorker: 2. Mã hóa Vigenère
+        ServerWorker->>ServerWorker: 3. Ghi file đĩa (Text / Binary)
+        ServerWorker->>ServerWorker: 4. Đọc lại file & giải mã
+        ServerWorker->>ServerWorker: 5. Tìm kiếm từ khóa 'HELLO'
+    end
+
+    ServerWorker->>Server_EDT: SwingUtilities.invokeLater() cập nhật JTable & Console
+    ServerWorker->>ClientWorker: Gửi UDP DatagramPacket (gói RESULT)
+    ClientWorker->>UI_EDT: done() callback trả kết quả về EDT
+    UI_EDT->>UI_EDT: Mở khóa nút 'Gửi', hiển thị kết quả & highlight từ khóa
