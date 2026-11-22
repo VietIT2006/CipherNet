@@ -12,6 +12,7 @@ Xây dựng Worker Thread chuyên trách việc lắng nghe socket UDP và phân
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/server/worker/UdpServerWorker.java`
+- `app/src/main/java/com/detai10/core/protocol/UdpProtocol.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 DatagramSocket.receive() chạy trên luồng phụ để không làm đơ giao diện; phản hồi gói PONG tức thì khi nhận PING; cập nhật UI qua SwingUtilities.invokeLater.

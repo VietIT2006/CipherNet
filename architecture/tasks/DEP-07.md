@@ -13,6 +13,9 @@ Viết tài liệu hướng dẫn người dùng cuối và lập trình viên: 
 ## 2. File liên quan (Affected Files)
 - `README.md`
 - `START.md`
+- `architecture/docs/CODING_STANDARDS.md`
+- `architecture/docs/TESTING_GUIDE.md`
+- `architecture/docs/UI_UX_DESIGN_GUIDELINES.md`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 - `START.md`: Hướng dẫn chi tiết từng bước:

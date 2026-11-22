@@ -12,6 +12,7 @@ Hiện thực thuật toán mã hóa và giải mã Vigenère đối xứng bằ
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/core/cipher/VigenereCipher.java`
+- `app/src/test/java/com/detai10/core/cipher/VigenereCipherTest.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Hàm encrypt(text, key) và decrypt(cipherText, key). Biến đổi chữ cái hoa/thường theo mod 26; bảo toàn nguyên vẹn số, dấu cách, ký tự đặc biệt.

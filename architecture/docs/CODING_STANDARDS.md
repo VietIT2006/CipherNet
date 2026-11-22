@@ -4,7 +4,7 @@ Tài liệu này quy định các tiêu chuẩn kỹ thuật chi tiết khi vi�
 
 ---
 
-## 1. Chuẩn Java 17 & Phong cách viết mã (Coding Style)
+## 1. Chuẩn Java 21 LTS & Phong cách viết mã (Coding Style)
 - **Tên Package:** Chữ thường toàn bộ, phân cấp rõ ràng (ví dụ: `com.detai10.core.cipher`).
 - **Tên Lớp (Class / Interface / Enum):** Danh từ, viết theo kiểu `PascalCase` (ví dụ: `VigenereCipher`, `UdpServerWorker`, `FileMode`).
 - **Tên Phương thức (Method):** Động từ hoặc cụm động từ, viết theo kiểu `camelCase` (ví dụ: `encrypt()`, `parsePacket()`, `findKeywordIndices()`).

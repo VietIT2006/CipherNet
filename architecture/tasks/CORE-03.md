@@ -12,6 +12,7 @@ Xây dựng hàm đọc và ghi file văn bản thuần túy theo chuẩn UTF-8.
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/core/io/FileHelper.java`
+- `app/src/test/java/com/detai10/core/io/FileHelperTextTest.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Sử dụng BufferedWriter và BufferedReader. Tự động tạo thư mục cha nếu chưa tồn tại; đảm bảo đóng luồng an toàn bằng try-with-resources.

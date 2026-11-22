@@ -8,10 +8,20 @@
 ---
 
 ## 1. Mục tiêu (Goal / User Story)
-Khởi tạo cấu trúc dự án chuẩn Clucky theo mô hình Spec-driven & AI-ready, thiết lập các file ngữ cảnh và khung dự án Java 17.
+Khởi tạo cấu trúc dự án chuẩn Clucky theo mô hình Spec-driven & AI-ready, thiết lập các file ngữ cảnh và khung dự án Java 21 LTS.
 
 ## 2. File liên quan (Affected Files)
-- `architecture/, app/, AGENTS.md, CONTEXT.md, START.md, .gitignore, build.gradle`
+- `AGENTS.md`
+- `CONTEXT.md`
+- `START.md`
+- `README.md`
+- `.gitignore`
+- `.gitattributes`
+- `build.gradle`
+- `settings.gradle`
+- `app/build.gradle`
+- `gradlew`
+- `gradlew.bat`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Tạo cây thư mục architecture/ (specs, tasks, diagrams, database, verification) và app/src/main/java, app/src/test/java. Cấu hình Gradle build với JDK 17, JUnit 5, JDBC driver.

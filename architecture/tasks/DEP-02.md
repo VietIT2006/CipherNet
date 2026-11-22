@@ -11,7 +11,18 @@
 Quy chuẩn hóa tài liệu kỹ thuật về giao thức UDP (PING/PONG, DATA), thuật toán Vigenère, luồng File I/O và các sơ đồ kiến trúc.
 
 ## 2. File liên quan (Affected Files)
-- `architecture/specs/SRS.md, udp-protocol.md, vigenere-and-io.md, architecture/diagrams/*.mmd`
+- `architecture/specs/SRS.md`
+- `architecture/specs/udp-protocol.md`
+- `architecture/specs/vigenere-and-io.md`
+- `architecture/specs/TASK_SPECIFICATIONS.md`
+- `architecture/diagrams/01-system-architecture.mmd`
+- `architecture/diagrams/02-udp-protocol-flow.mmd`
+- `architecture/diagrams/03-server-processing-flow.mmd`
+- `architecture/diagrams/04-vigenere-cipher-flow.mmd`
+- `architecture/diagrams/05-database-erd.mmd`
+- `architecture/diagrams/06-client-state-machine.mmd`
+- `architecture/diagrams/07-thread-concurrency.mmd`
+- `architecture/diagrams/README.md`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Viết định dạng Markdown và Mermaid .mmd trực quan hóa kiến trúc hệ thống, luồng tuần tự gói tin, quy trình xử lý tại Server và mã hóa Vigenère.

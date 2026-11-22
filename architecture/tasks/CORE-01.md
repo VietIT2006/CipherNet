@@ -12,6 +12,8 @@ Xây dựng module đóng gói và bóc tách gói tin giao tiếp UDP giữa Cl
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/core/protocol/UdpProtocol.java`
+- `app/src/main/java/com/detai10/core/model/FileMode.java`
+- `app/src/test/java/com/detai10/core/protocol/UdpProtocolTest.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Xử lý 2 loại gói: PING/PONG và DATA|<mode>|<fileName>|<content>. Bóc tách an toàn bằng split("\\|", 4) để nội dung có thể chứa ký tự |.

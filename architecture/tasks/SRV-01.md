@@ -12,6 +12,7 @@ Xây dựng giao diện đồ họa quản trị Server bằng Java Swing.
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/server/ui/ServerMainFrame.java`
+- `app/src/main/java/com/detai10/server/ServerApp.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Gồm JTextField nhập Port, JTextField nhập Key Vigenère, JButton Start/Stop, JTable hoặc JTextArea hiển thị log gói tin đến và kết quả phân tích.

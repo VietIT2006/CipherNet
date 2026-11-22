@@ -3,7 +3,7 @@
 > **Dự án:** Vigen — Hệ thống Client – Server Quản lý & Truyền nhận Dữ liệu Mã hóa qua Giao thức UDP  
 > **Phương pháp phát triển:** Spec-driven & AI-ready Development (Áp dụng Workflow chuẩn Clucky)  
 > **Tổng khối lượng ước tính:** **4 Sprint | 24 Tasks | 56 Story Points (SP)**  
-> **Ngôn ngữ:** Java 17 LTS | **Giao thức:** UDP (`DatagramSocket`) | **Giao diện:** Java Swing | **CSDL:** MySQL (Localhost:3306)
+> **Ngôn ngữ:** Java 21 LTS | **Giao thức:** UDP (`DatagramSocket`) | **Giao diện:** Java Swing | **CSDL:** MySQL (Localhost:3306)
 
 ---
 
@@ -27,11 +27,11 @@
 
 ### DEP-01: Khởi tạo Repo, cấu trúc thư mục chuẩn & bộ file ngữ cảnh
 - **Mã Task:** `DEP-01` | **Sprint:** 1 | **Độ ưu tiên:** Cao | **Ước lượng:** 2 SP
-- **File liên quan:** `architecture/`, `app/`, `AGENTS.md`, `CONTEXT.md`, `START.md`, `.gitignore`, `build.gradle`
-- **Mục tiêu:** Thiết lập cấu trúc kho lưu trữ Git theo quy chuẩn Spec-driven development chuẩn Clucky, khởi tạo các tài liệu nền tảng và cấu trúc project Java 17.
+- **File liên quan:** `AGENTS.md`, `CONTEXT.md`, `START.md`, `README.md`, `.gitignore`, `.gitattributes`, `build.gradle`, `settings.gradle`, `app/build.gradle`, `gradlew`, `gradlew.bat`
+- **Mục tiêu:** Thiết lập cấu trúc kho lưu trữ Git theo quy chuẩn Spec-driven development chuẩn Clucky, khởi tạo các tài liệu nền tảng và cấu trúc project Java 21.
 - **Yêu cầu kỹ thuật:**
   - Hoàn thiện cây thư mục `architecture/` (`specs`, `tasks`, `diagrams`, `database`, `verification`) và `app/` (`src/main/java`, `src/test/java`).
-  - Cấu hình Gradle với Java 17, dependencies (MySQL Connector, JUnit 5).
+  - Cấu hình Gradle với Java 21, dependencies (MySQL Connector, JUnit 5).
   - Viết tài liệu `AGENTS.md`, `CONTEXT.md`, `START.md`, cấu hình `.gitignore` và `.gitattributes`.
 - **Tiêu chí hoàn thành (DoD):**
   - [x] Cây thư mục hoàn chỉnh, bộ file ngữ cảnh sẵn sàng, build Gradle thành công.
@@ -40,7 +40,7 @@
 
 ### DEP-02: Viết tài liệu đặc tả & sơ đồ Mermaid
 - **Mã Task:** `DEP-02` | **Sprint:** 1 | **Độ ưu tiên:** Cao | **Ước lượng:** 2 SP
-- **File liên quan:** `architecture/specs/SRS.md`, `udp-protocol.md`, `vigenere-and-io.md`, `architecture/diagrams/*.mmd`
+- **File liên quan:** `architecture/specs/SRS.md`, `architecture/specs/udp-protocol.md`, `architecture/specs/vigenere-and-io.md`, `architecture/specs/TASK_SPECIFICATIONS.md`, `architecture/diagrams/01-system-architecture.mmd`, `architecture/diagrams/02-udp-protocol-flow.mmd`, `architecture/diagrams/03-server-processing-flow.mmd`, `architecture/diagrams/04-vigenere-cipher-flow.mmd`, `architecture/diagrams/05-database-erd.mmd`, `architecture/diagrams/06-client-state-machine.mmd`, `architecture/diagrams/07-thread-concurrency.mmd`, `architecture/diagrams/README.md`
 - **Mục tiêu:** Quy chuẩn hóa toàn bộ tài liệu kỹ thuật và sơ đồ kiến trúc hệ thống trước khi lập trình.
 - **Yêu cầu kỹ thuật:**
   - Chốt giao thức `PING <-> PONG` (timeout 3s) và gói `DATA|<mode>|<fileName>|<content>`.
@@ -53,7 +53,7 @@
 
 ### DEP-03: Thiết kế & khởi tạo CSDL MySQL
 - **Mã Task:** `DEP-03` | **Sprint:** 1 | **Độ ưu tiên:** Cao | **Ước lượng:** 2 SP
-- **File liên quan:** `architecture/database/schema.sql`, `sample_data.sql`, `README.md`, `scripts/init-db.bat`
+- **File liên quan:** `architecture/database/schema.sql`, `architecture/database/sample_data.sql`, `architecture/database/README.md`, `scripts/init-db.bat`, `app/src/main/resources/database.properties.example`
 - **Mục tiêu:** Thiết kế lược đồ cơ sở dữ liệu lưu lịch sử xử lý gói tin UDP và bảng thông tin sinh viên trên MySQL cục bộ.
 - **Yêu cầu kỹ thuật:**
   - CSDL MySQL chạy tại `localhost:3306`, database `detai10_db` chuẩn `utf8mb4`.
@@ -91,7 +91,7 @@
 
 ### CORE-01: Cài đặt bộ phân tích gói tin UDP (UdpProtocol)
 - **Mã Task:** `CORE-01` | **Sprint:** 2 | **Độ ưu tiên:** Cao | **Ước lượng:** 1 SP
-- **File liên quan:** `app/src/main/java/com/detai10/core/protocol/UdpProtocol.java`
+- **File liên quan:** `app/src/main/java/com/detai10/core/protocol/UdpProtocol.java`, `app/src/main/java/com/detai10/core/model/FileMode.java`, `app/src/test/java/com/detai10/core/protocol/UdpProtocolTest.java`
 - **Mục tiêu:** Đóng gói và bóc tách các bản tin giao tiếp UDP giữa Client và Server.
 - **Yêu cầu kỹ thuật:**
   - Hỗ trợ gói tin `PING`, `PONG`, `DATA|<mode>|<fileName>|<content>`, `RESULT|<status>|<positions>`, `ERROR|<message>`.
@@ -103,7 +103,7 @@
 
 ### CORE-02: Cài đặt thuật toán mã hóa & giải mã Vigenère (VigenereCipher)
 - **Mã Task:** `CORE-02` | **Sprint:** 2 | **Độ ưu tiên:** Cao | **Ước lượng:** 3 SP
-- **File liên quan:** `app/src/main/java/com/detai10/core/cipher/VigenereCipher.java`
+- **File liên quan:** `app/src/main/java/com/detai10/core/cipher/VigenereCipher.java`, `app/src/test/java/com/detai10/core/cipher/VigenereCipherTest.java`
 - **Mục tiêu:** Cài đặt phương thức mã hóa `encrypt(text, key)` và giải mã `decrypt(cipherText, key)`.
 - **Yêu cầu kỹ thuật:**
   - Chỉ dịch chuyển chữ cái tiếng Anh `A-Z` và `a-z` theo modulo 26.
@@ -117,7 +117,7 @@
 
 ### CORE-03: Cài đặt đọc/ghi file chế độ Văn bản (FileHelper – Text Mode)
 - **Mã Task:** `CORE-03` | **Sprint:** 2 | **Độ ưu tiên:** Cao | **Ước lượng:** 2 SP
-- **File liên quan:** `app/src/main/java/com/detai10/core/io/FileHelper.java`
+- **File liên quan:** `app/src/main/java/com/detai10/core/io/FileHelper.java`, `app/src/test/java/com/detai10/core/io/FileHelperTextTest.java`
 - **Mục tiêu:** Hiện thực hàm đọc và ghi file văn bản thuần túy theo chuẩn UTF-8.
 - **Yêu cầu kỹ thuật:**
   - Ghi file bằng `BufferedWriter` (UTF-8); đọc file bằng `BufferedReader` (UTF-8).
@@ -129,7 +129,7 @@
 
 ### CORE-04: Cài đặt đọc/ghi file chế độ Nhị phân (FileHelper – Binary Mode)
 - **Mã Task:** `CORE-04` | **Sprint:** 2 | **Độ ưu tiên:** Cao | **Ước lượng:** 2 SP
-- **File liên quan:** `app/src/main/java/com/detai10/core/io/FileHelper.java`
+- **File liên quan:** `app/src/main/java/com/detai10/core/io/FileHelper.java`, `app/src/test/java/com/detai10/core/io/FileHelperBinaryTest.java`
 - **Mục tiêu:** Hiện thực hàm đọc và ghi file nhị phân định kiểu có đệm.
 - **Yêu cầu kỹ thuật:**
   - Ghi file bằng `DataOutputStream` bọc `BufferedOutputStream` sử dụng `writeUTF(content)`.
@@ -141,7 +141,7 @@
 
 ### CORE-05: Cài đặt thuật toán tìm tất cả vị trí từ "HELLO" (KeywordFinder)
 - **Mã Task:** `CORE-05` | **Sprint:** 2 | **Độ ưu tiên:** Trung bình | **Ước lượng:** 1 SP
-- **File liên quan:** `app/src/main/java/com/detai10/core/search/KeywordFinder.java`
+- **File liên quan:** `app/src/main/java/com/detai10/core/search/KeywordFinder.java`, `app/src/test/java/com/detai10/core/search/KeywordFinderTest.java`
 - **Mục tiêu:** Quét toàn bộ văn bản sau giải mã để tìm tất cả các vị trí xuất hiện của từ khóa `"HELLO"`.
 - **Yêu cầu kỹ thuật:**
   - Trả về danh sách `List<Integer>` đại diện cho các index 0-based.
@@ -154,7 +154,7 @@
 
 ### CORE-06: Xây dựng tầng thao tác CSDL (DatabaseHelper)
 - **Mã Task:** `CORE-06` | **Sprint:** 2 | **Độ ưu tiên:** Cao | **Ước lượng:** 3 SP
-- **File liên quan:** `app/src/main/java/com/detai10/core/db/DatabaseHelper.java`
+- **File liên quan:** `app/src/main/java/com/detai10/core/db/DatabaseHelper.java`, `app/src/main/java/com/detai10/core/model/HistoryRecord.java`, `app/src/test/java/com/detai10/core/db/DatabaseHelperTest.java`
 - **Mục tiêu:** Hiện thực tầng truy xuất dữ liệu JDBC để ghi log xử lý của Server vào MySQL.
 - **Yêu cầu kỹ thuật:**
   - Đọc cấu hình từ `database.properties` (URL, user, password).
@@ -167,7 +167,7 @@
 
 ### CORE-07: Viết bộ Unit Test (JUnit 5) & lớp CoreSelfCheck cho toàn bộ Core Logic
 - **Mã Task:** `CORE-07` | **Sprint:** 2 | **Độ ưu tiên:** Cao | **Ước lượng:** 3 SP
-- **File liên quan:** `app/src/test/java/com/detai10/core/**`, `app/src/main/java/com/detai10/core/CoreSelfCheck.java`
+- **File liên quan:** `app/src/main/java/com/detai10/core/CoreSelfCheck.java`, `app/src/test/java/com/detai10/core/protocol/UdpProtocolTest.java`, `app/src/test/java/com/detai10/core/cipher/VigenereCipherTest.java`, `app/src/test/java/com/detai10/core/io/FileHelperTextTest.java`, `app/src/test/java/com/detai10/core/io/FileHelperBinaryTest.java`, `app/src/test/java/com/detai10/core/search/KeywordFinderTest.java`, `app/src/test/java/com/detai10/core/db/DatabaseHelperTest.java`
 - **Mục tiêu:** Xây dựng bộ test tự động toàn diện kiểm chứng toàn bộ tầng Core Logic.
 - **Yêu cầu kỹ thuật:**
   - Unit Test JUnit 5 cho `UdpProtocolTest`, `VigenereCipherTest`, `FileHelperTest` (bắt buộc dùng `@TempDir`), `KeywordFinderTest`, `DatabaseHelperTest`.
@@ -191,7 +191,7 @@
 
 ### SRV-01: Thiết kế giao diện Server (ServerMainFrame)
 - **Mã Task:** `SRV-01` | **Sprint:** 3 | **Độ ưu tiên:** Cao | **Ước lượng:** 3 SP
-- **File liên quan:** `app/src/main/java/com/detai10/server/ui/ServerMainFrame.java`
+- **File liên quan:** `app/src/main/java/com/detai10/server/ui/ServerMainFrame.java`, `app/src/main/java/com/detai10/server/ServerApp.java`
 - **Mục tiêu:** Xây dựng màn hình đồ họa quản trị Server bằng Java Swing.
 - **Yêu cầu kỹ thuật:**
   - Cấu hình: Ô nhập Port (`9876`), ô nhập Key Vigenère (`KEYSECRET`), nút Start/Stop Server có toggle trạng thái.
@@ -204,7 +204,7 @@
 
 ### SRV-02: Xây dựng luồng nền lắng nghe UDP (UdpServerWorker)
 - **Mã Task:** `SRV-02` | **Sprint:** 3 | **Độ ưu tiên:** Cao | **Ước lượng:** 3 SP
-- **File liên quan:** `app/src/main/java/com/detai10/server/worker/UdpServerWorker.java`
+- **File liên quan:** `app/src/main/java/com/detai10/server/worker/UdpServerWorker.java`, `app/src/main/java/com/detai10/core/protocol/UdpProtocol.java`
 - **Mục tiêu:** Xây dựng Worker Thread chuyên trách lắng nghe socket UDP và phản hồi tức thời.
 - **Yêu cầu kỹ thuật:**
   - Vòng lặp `DatagramSocket.receive()` chạy trên Thread độc lập để không làm đơ giao diện Server.
@@ -217,7 +217,7 @@
 
 ### SRV-03: Tích hợp luồng xử lý gói DATA trên Server
 - **Mã Task:** `SRV-03` | **Sprint:** 3 | **Độ ưu tiên:** Cao | **Ước lượng:** 5 SP
-- **File liên quan:** `app/src/main/java/com/detai10/server/ServerApp.java`
+- **File liên quan:** `app/src/main/java/com/detai10/server/ServerApp.java`, `app/src/main/java/com/detai10/server/worker/UdpServerWorker.java`, `app/src/main/java/com/detai10/server/ui/ServerMainFrame.java`, `app/src/main/java/com/detai10/core/cipher/VigenereCipher.java`, `app/src/main/java/com/detai10/core/io/FileHelper.java`, `app/src/main/java/com/detai10/core/search/KeywordFinder.java`, `app/src/main/java/com/detai10/core/db/DatabaseHelper.java`
 - **Mục tiêu:** Kết nối hoàn chỉnh chu trình tiếp nhận, xử lý, lưu trữ và phản hồi gói tin DATA.
 - **Yêu cầu kỹ thuật:**
   - Chu trình 8 bước:
@@ -236,7 +236,7 @@
 
 ### UI-01: Thiết kế & xử lý màn hình Kết nối Client (ConnectFrame)
 - **Mã Task:** `UI-01` | **Sprint:** 3 | **Độ ưu tiên:** Cao | **Ước lượng:** 3 SP
-- **File liên quan:** `app/src/main/java/com/detai10/client/ui/ConnectFrame.java`
+- **File liên quan:** `app/src/main/java/com/detai10/client/ui/ConnectFrame.java`, `app/src/main/java/com/detai10/client/ClientApp.java`, `app/src/main/java/com/detai10/core/protocol/UdpProtocol.java`
 - **Mục tiêu:** Xây dựng màn hình nhập IP/Port và kiểm tra kết nối với Server trước khi làm việc.
 - **Yêu cầu kỹ thuật:**
   - Ô nhập IP (mặc định `127.0.0.1`), ô nhập Port (`9876`).
@@ -250,7 +250,7 @@
 
 ### UI-02: Thiết kế màn hình làm việc chính Client (ClientMainFrame)
 - **Mã Task:** `UI-02` | **Sprint:** 3 | **Độ ưu tiên:** Cao | **Ước lượng:** 2 SP
-- **File liên quan:** `app/src/main/java/com/detai10/client/ui/ClientMainFrame.java`
+- **File liên quan:** `app/src/main/java/com/detai10/client/ui/ClientMainFrame.java`, `app/src/main/java/com/detai10/core/model/FileMode.java`
 - **Mục tiêu:** Xây dựng giao diện nhập dữ liệu và hiển thị kết quả cho người dùng Client.
 - **Yêu cầu kỹ thuật:**
   - Ô nhập tên file (ví dụ `data.txt`), ô nhập nội dung văn bản (`JTextArea` có scroll).
@@ -264,7 +264,7 @@
 
 ### UI-03: Xử lý gửi gói DATA & nhận kết quả trên Client
 - **Mã Task:** `UI-03` | **Sprint:** 3 | **Độ ưu tiên:** Cao | **Ước lượng:** 3 SP
-- **File liên quan:** `app/src/main/java/com/detai10/client/ClientApp.java`
+- **File liên quan:** `app/src/main/java/com/detai10/client/ClientApp.java`, `app/src/main/java/com/detai10/client/ui/ClientMainFrame.java`, `app/src/main/java/com/detai10/core/protocol/UdpProtocol.java`
 - **Mục tiêu:** Lập trình sự kiện gửi gói UDP DATA bằng `SwingWorker` và tiếp nhận phản hồi từ Server.
 - **Yêu cầu kỹ thuật:**
   - Validate dữ liệu đầu vào: Tên file và nội dung không được để trống.
@@ -327,7 +327,7 @@
 
 ### DEP-07: Hoàn thiện README.md, START.md & tài liệu báo cáo đồ án
 - **Mã Task:** `DEP-07` | **Sprint:** 4 | **Độ ưu tiên:** Thấp | **Ước lượng:** 2 SP
-- **File liên quan:** `README.md`, `START.md`, `architecture/docs/`
+- **File liên quan:** `README.md`, `START.md`, `architecture/docs/CODING_STANDARDS.md`, `architecture/docs/TESTING_GUIDE.md`, `architecture/docs/UI_UX_DESIGN_GUIDELINES.md`
 - **Mục tiêu:** Hoàn thiện bộ tài liệu hướng dẫn và tài liệu thuyết minh phục vụ bảo vệ đồ án.
 - **Yêu cầu kỹ thuật:**
   - Cập nhật đầy đủ hướng dẫn cài đặt, chạy ứng dụng, sơ đồ kiến trúc, kịch bản demo và câu hỏi vấn đáp.

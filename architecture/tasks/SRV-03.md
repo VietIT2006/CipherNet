@@ -13,6 +13,7 @@ Tích hợp luồng xử lý toàn diện gói tin DATA trên Server: Nhận gó
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/server/ServerApp.java`
 - `app/src/main/java/com/detai10/server/worker/UdpServerWorker.java`
+- `app/src/main/java/com/detai10/server/ui/ServerMainFrame.java`
 - `app/src/main/java/com/detai10/core/cipher/VigenereCipher.java`
 - `app/src/main/java/com/detai10/core/io/FileHelper.java`
 - `app/src/main/java/com/detai10/core/search/KeywordFinder.java`

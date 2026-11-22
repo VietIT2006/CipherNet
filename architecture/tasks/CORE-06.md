@@ -12,6 +12,8 @@ Hiện thực tầng truy xuất dữ liệu JDBC để ghi log xử lý gói ti
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/core/db/DatabaseHelper.java`
+- `app/src/main/java/com/detai10/core/model/HistoryRecord.java`
+- `app/src/test/java/com/detai10/core/db/DatabaseHelperTest.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Kết nối JDBC MySQL/SQL Server; hàm insertLog(...) sử dụng PreparedStatement để chống SQL Injection; quản lý kết nối an toàn.

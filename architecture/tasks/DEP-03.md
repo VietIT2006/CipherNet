@@ -11,7 +11,11 @@
 Thiết kế lược đồ cơ sở dữ liệu lưu lịch sử xử lý gói tin và dữ liệu sinh viên kiểm thử.
 
 ## 2. File liên quan (Affected Files)
-- `architecture/database/schema.sql, sample_data.sql, README.md`
+- `architecture/database/schema.sql`
+- `architecture/database/sample_data.sql`
+- `architecture/database/README.md`
+- `scripts/init-db.bat`
+- `app/src/main/resources/database.properties.example`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Tạo bảng lich_su_xu_ly lưu IP Client, tên file, chế độ, nội dung gốc, nội dung mã hóa, vị trí HELLO, thời gian; bảng bổ trợ sinh_vien. Hỗ trợ UTF-8 (utf8mb4).

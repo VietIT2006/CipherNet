@@ -12,6 +12,7 @@ Xây dựng thuật toán quét toàn bộ văn bản để tìm tất cả các
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/core/search/KeywordFinder.java`
+- `app/src/test/java/com/detai10/core/search/KeywordFinderTest.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Hàm findKeywordIndices(text, "HELLO") trả về List<Integer> đại diện cho các index 0-based. Xử lý trường hợp không tìm thấy và phân biệt/không phân biệt hoa thường theo đặc tả.

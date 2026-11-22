@@ -12,6 +12,7 @@ Xây dựng hàm đọc và ghi file định dạng nhị phân có đệm.
 
 ## 2. File liên quan (Affected Files)
 - `app/src/main/java/com/detai10/core/io/FileHelper.java`
+- `app/src/test/java/com/detai10/core/io/FileHelperBinaryTest.java`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Sử dụng luồng định kiểu DataOutputStream(BufferedOutputStream) với writeUTF() và DataInputStream(BufferedInputStream) với readUTF().

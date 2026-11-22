@@ -11,7 +11,8 @@
 Cấu hình build Gradle (ShadowJar / Application) để xuất ra 2 file JAR độc lập kèm phụ thuộc.
 
 ## 2. File liên quan (Affected Files)
-- `app/build.gradle, scripts/build-jars.bat`
+- `app/build.gradle`
+- `scripts/build-all.bat`
 
 ## 3. Yêu cầu kỹ thuật chi tiết (Technical Requirements)
 Cấu hình 2 manifest riêng biệt chỉ định Main-Class cho Server và Client; bundle kèm JDBC Driver để chạy độc lập.

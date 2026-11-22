@@ -11,6 +11,7 @@
 Xây dựng bộ kiểm thử đơn vị tự động bằng JUnit 5 cho tất cả các lớp trong tầng Core Logic, đảm bảo độ bao phủ cao và chạy độc lập trên môi trường Linux Headless CI.
 
 ## 2. File liên quan (Affected Files)
+- `app/src/main/java/com/detai10/core/CoreSelfCheck.java`
 - `app/src/test/java/com/detai10/core/protocol/UdpProtocolTest.java`
 - `app/src/test/java/com/detai10/core/cipher/VigenereCipherTest.java`
 - `app/src/test/java/com/detai10/core/io/FileHelperTextTest.java`
