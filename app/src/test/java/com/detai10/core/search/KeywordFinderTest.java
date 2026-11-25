@@ -5,15 +5,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Bộ Unit Test bao phủ 100% kịch bản cho KeywordFinder (CORE-05).
+ * Bộ Unit Test bao phủ 100% kịch bản cho KeywordFinder (CORE-05 / CORE-07).
+ * Tuân thủ Quy tắc 1 (Headless First): Không import UI AWT/Swing.
  */
 class KeywordFinderTest {
 
@@ -121,5 +126,15 @@ class KeywordFinderTest {
     void testAliasFindHelloPositions() {
         String text = "Say Hello to everyone";
         assertEquals(KeywordFinder.findHelloIndices(text), KeywordFinder.findHelloPositions(text));
+    }
+
+    @Test
+    @DisplayName("Khởi tạo thể hiện tiện ích qua reflection phải ném ngoại lệ UnsupportedOperationException")
+    void testPrivateConstructor() throws Exception {
+        Constructor<KeywordFinder> constructor = KeywordFinder.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        InvocationTargetException thrown = assertThrows(InvocationTargetException.class, constructor::newInstance);
+        assertNotNull(thrown.getCause());
+        assertTrue(thrown.getCause() instanceof UnsupportedOperationException);
     }
 }
