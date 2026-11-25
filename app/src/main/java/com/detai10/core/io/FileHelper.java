@@ -37,25 +37,23 @@ public final class FileHelper {
     private static final int READ_BUFFER_SIZE = 4096;
 
     private FileHelper() {
-        // Lớp tiện ích tĩnh, không cho phép khởi tạo.
+        throw new UnsupportedOperationException("Lớp tiện ích không thể khởi tạo thể hiện.");
     }
 
     /**
      * Ghi toàn bộ nội dung văn bản ra file theo bảng mã {@link StandardCharsets#UTF_8}.
-     * Tự động tạo các thư mục cha nếu chưa tồn tại.
+     * Tự động tạo các thư mục cha nếu chưa tồn tại. Nếu content là null, tự động ghi chuỗi rỗng an toàn.
      *
      * @param filePath đường dẫn file đích (không được {@code null}).
-     * @param content  nội dung chuỗi cần ghi (không được {@code null}).
-     * @throws IllegalArgumentException nếu {@code filePath} hoặc {@code content} là {@code null}.
+     * @param content  nội dung chuỗi cần ghi (cho phép {@code null}).
+     * @throws IllegalArgumentException nếu {@code filePath} là {@code null}.
      * @throws IOException              nếu đường dẫn là thư mục hoặc xảy ra lỗi quyền/ghi đĩa.
      */
     public static void writeTextFile(Path filePath, String content) throws IOException {
         if (filePath == null) {
             throw new IllegalArgumentException("Đường dẫn file cần ghi không được null.");
         }
-        if (content == null) {
-            throw new IllegalArgumentException("Nội dung văn bản cần ghi không được null.");
-        }
+        String safeContent = content != null ? content : "";
 
         try {
             Path parent = filePath.getParent();
@@ -65,7 +63,7 @@ public final class FileHelper {
             // Chỉ định tường minh StandardCharsets.UTF_8 để bảo toàn tiếng Việt có dấu trên mọi OS.
             try (BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(Files.newOutputStream(filePath), StandardCharsets.UTF_8))) {
-                writer.write(content);
+                writer.write(safeContent);
                 writer.flush();
             }
         } catch (IOException e) {
@@ -77,8 +75,8 @@ public final class FileHelper {
      * Ghi toàn bộ nội dung văn bản ra {@link File} theo bảng mã {@link StandardCharsets#UTF_8}.
      *
      * @param file    đối tượng {@link File} đích (không được {@code null}).
-     * @param content nội dung chuỗi cần ghi (không được {@code null}).
-     * @throws IllegalArgumentException nếu {@code file} hoặc {@code content} là {@code null}.
+     * @param content nội dung chuỗi cần ghi (cho phép {@code null}).
+     * @throws IllegalArgumentException nếu {@code file} là {@code null}.
      * @throws IOException              nếu xảy ra lỗi tạo thư mục hoặc ghi đĩa.
      */
     public static void writeTextFile(File file, String content) throws IOException {
@@ -108,7 +106,6 @@ public final class FileHelper {
             throw new IOException("Đường dẫn là thư mục, không phải file văn bản: '" + filePath + "'.");
         }
 
-        // Đọc theo khối ký tự bằng BufferedReader để giữ nguyên 100% ký tự xuống dòng (kể cả dòng trống/cuối file).
         StringBuilder content = new StringBuilder();
         char[] buffer = new char[READ_BUFFER_SIZE];
         try (BufferedReader reader = new BufferedReader(
@@ -141,30 +138,27 @@ public final class FileHelper {
     /**
      * Ghi chuỗi dữ liệu ra file nhị phân có đệm bằng {@link DataOutputStream}({@link BufferedOutputStream})
      * và {@link DataOutputStream#writeUTF(String)} (modified UTF-8 kèm tiền tố độ dài 2 byte).
-     * Tự động tạo các thư mục cha nếu chưa tồn tại.
+     * Tự động tạo các thư mục cha nếu chưa tồn tại. Nếu content là null, tự động ghi chuỗi rỗng an toàn.
      *
      * @param filePath đường dẫn file nhị phân đích (không được {@code null}).
-     * @param content  nội dung chuỗi cần ghi (không được {@code null}).
-     * @throws IllegalArgumentException nếu {@code filePath} hoặc {@code content} là {@code null}.
+     * @param content  nội dung chuỗi cần ghi (cho phép {@code null}).
+     * @throws IllegalArgumentException nếu {@code filePath} là {@code null}.
      * @throws IOException              nếu không tạo được thư mục, đường dẫn là thư mục hoặc lỗi ghi đĩa.
      */
     public static void writeBinaryFile(Path filePath, String content) throws IOException {
         if (filePath == null) {
             throw new IllegalArgumentException("Đường dẫn file nhị phân cần ghi không được null.");
         }
-        if (content == null) {
-            throw new IllegalArgumentException("Nội dung chuỗi cần ghi nhị phân không được null.");
-        }
+        String safeContent = content != null ? content : "";
 
         try {
             Path parent = filePath.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            // Dùng BufferedOutputStream bọc FileOutputStream để giảm số lần syscall ghi đĩa khi writeUTF.
             try (DataOutputStream dos = new DataOutputStream(
                     new BufferedOutputStream(new FileOutputStream(filePath.toFile())))) {
-                dos.writeUTF(content);
+                dos.writeUTF(safeContent);
                 dos.flush();
             }
         } catch (IOException e) {
@@ -176,8 +170,8 @@ public final class FileHelper {
      * Ghi chuỗi dữ liệu ra {@link File} ở chế độ nhị phân có đệm.
      *
      * @param file    đối tượng {@link File} đích (không được {@code null}).
-     * @param content nội dung chuỗi cần ghi (không được {@code null}).
-     * @throws IllegalArgumentException nếu {@code file} hoặc {@code content} là {@code null}.
+     * @param content nội dung chuỗi cần ghi (cho phép {@code null}).
+     * @throws IllegalArgumentException nếu {@code file} là {@code null}.
      * @throws IOException              nếu xảy ra lỗi tạo thư mục hoặc ghi đĩa.
      */
     public static void writeBinaryFile(File file, String content) throws IOException {
@@ -208,7 +202,6 @@ public final class FileHelper {
             throw new IOException("Đường dẫn là thư mục, không phải file nhị phân: '" + filePath + "'.");
         }
 
-        // Dùng BufferedInputStream bọc FileInputStream để đọc nhanh và xử lý EOFException tường minh.
         try (DataInputStream dis = new DataInputStream(
                 new BufferedInputStream(new FileInputStream(filePath.toFile())))) {
             return dis.readUTF();
