@@ -1,5 +1,7 @@
 package com.detai10.server.ui;
 
+import com.detai10.server.worker.UdpServerWorker;
+
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -31,6 +33,7 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
@@ -45,27 +48,31 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Giao diện đồ họa chính (GUI) của ứng dụng UDP Server (SRV-01).
+ * Giao diện đồ họa chính (GUI) của ứng dụng UDP Server (SRV-01 / SRV-05).
  * <p>
- * Tính năng chính:
+ * Tính năng chính & Đồng bộ thời gian thực (SRV-05):
  * 1. Bảng điều khiển cấu hình: Nhập Port lắng nghe (mặc định 9876), Khóa Vigenère bí mật, Nút Start / Stop Server.
  * 2. Đèn báo trạng thái trực quan: Badge LED hiển thị ONLINE (xanh lá) / OFFLINE (đỏ).
- * 3. Bảng JTable Lịch sử xử lý: Hiển thị đầy đủ thông tin giao dịch UDP.
+ * 3. Đồng bộ JTable Lịch sử xử lý: Hiển thị đầy đủ thông tin giao dịch UDP nhận được tức thì.
+ *    - Tự động cuộn xuống dòng mới nhất trên JTable khi có gói tin mới đến.
  *    - Hỗ trợ nhấp đúp xem chi tiết toàn văn bản gốc & mã hóa trong hộp thoại riêng.
- *    - Nút làm mới dữ liệu và xóa trắng bảng lịch sử.
- * 4. Khung Console Log: Ghi vết thời gian thực mọi sự kiện nhận / phản hồi gói tin UDP kèm tự động cuộn.
- * 5. Thanh trạng thái phía dưới (Status Bar): Thống kê số gói tin đã xử lý và trạng thái hệ thống.
+ *    - Nút xóa trắng bảng lịch sử.
+ * 4. Đồng bộ Realtime Console Log (JTextArea):
+ *    - Ghi vết thời gian thực mọi sự kiện nhận / gửi UDP kèm thông số IP, Port, Byte count.
+ *    - Tự động cuộn xuống cuối (Auto-scroll).
+ *    - Giới hạn số dòng hiển thị tối đa (MAX_LOG_LINES = 1000) chống tràn bộ nhớ / giật lag khi chạy lâu.
+ * 5. Thanh trạng thái phía dưới (Status Bar): Thống kê số gói tin đã xử lý.
  * <p>
- * Kiến trúc phân tầng & Đa luồng:
- * - Tuân thủ Quy tắc 1.1 & 1.2: Không chặn EDT, cập nhật UI bọc trong {@code SwingUtilities.invokeLater()}.
- * - Tuân thủ Quy tắc 2.2: Tuyệt đối không dùng {@code setLayout(null)}, dùng Layout Managers tiêu chuẩn.
- * - Hỗ trợ cơ chế {@link ServerController} để gắn kết linh hoạt với luồng nền Worker mà không gây phụ thuộc cứng.
- * - Graceful Shutdown: Hộp thoại xác nhận đóng ứng dụng an toàn.
+ * Kiến trúc Non-blocking GUI & Thread-Safety:
+ * - Tách biệt hoàn toàn luồng I/O mạng UDP (UdpServerWorker) khỏi Event Dispatch Thread (EDT).
+ * - Mọi thao tác cập nhật component bảng, log, badge đều bọc trong {@code SwingUtilities.invokeLater()}.
+ * - Graceful Shutdown: Hộp thoại xác nhận đóng ứng dụng an toàn và giải phóng tài nguyên.
  */
 public class ServerMainFrame extends JFrame {
 
     public static final int DEFAULT_PORT = 9876;
     public static final String DEFAULT_KEY = "KEYSECRET";
+    public static final int MAX_LOG_LINES = 1000;
     private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     // Bảng màu giao diện chuẩn (Design Tokens)
@@ -108,7 +115,8 @@ public class ServerMainFrame extends JFrame {
     private final AtomicInteger logLineCount = new AtomicInteger(0);
     private volatile boolean isServerRunning = false;
 
-    // Interface mở rộng cho controller kết nối luồng nền
+    // Luồng nền worker & controller
+    private UdpServerWorker serverWorker;
     private ServerController serverController;
 
     /**
@@ -125,15 +133,16 @@ public class ServerMainFrame extends JFrame {
         initComponents();
     }
 
-    /**
-     * Thiết lập bộ điều khiển Server tùy chọn từ bên ngoài (phục vụ kết nối UdpServerWorker khi ghép nối).
-     */
     public void setServerController(ServerController serverController) {
         this.serverController = serverController;
     }
 
     public ServerController getServerController() {
         return serverController;
+    }
+
+    public UdpServerWorker getServerWorker() {
+        return serverWorker;
     }
 
     private void initWindowProperties() {
@@ -440,10 +449,10 @@ public class ServerMainFrame extends JFrame {
         return panel;
     }
 
-    // ==================== Các tác vụ Nghiệp vụ & Đa luồng ====================
+    // ==================== Các tác vụ Nghiệp vụ & Đa luồng (SRV-05) ====================
 
     /**
-     * Khởi động Server: Kiểm tra cổng hợp lệ, chuyển đổi trạng thái giao diện và gọi controller nếu có.
+     * Khởi động Server: Kết nối luồng nền UdpServerWorker và đồng bộ giao diện thời gian thực (SRV-05).
      */
     public void startServer() {
         String portText = portField.getText().trim();
@@ -470,7 +479,6 @@ public class ServerMainFrame extends JFrame {
         int finalPort = port;
         String finalKey = key;
 
-        // Vô hiệu hóa controls
         startButton.setEnabled(false);
         portField.setEnabled(false);
         keyField.setEnabled(false);
@@ -484,6 +492,19 @@ public class ServerMainFrame extends JFrame {
                 try {
                     if (serverController != null) {
                         serverController.start(finalPort, finalKey);
+                    } else {
+                        // Khởi tạo luồng mạng UdpServerWorker và kết nối callback đồng bộ GUI
+                        serverWorker = new UdpServerWorker(finalPort);
+                        serverWorker.setLogListener(msg -> appendLog(msg));
+                        serverWorker.setTransactionListener(event -> addHistoryRow(
+                                event.getClientIp(),
+                                event.getFileName(),
+                                event.getFileMode(),
+                                event.getOriginalContent(),
+                                event.getEncryptedContent(),
+                                event.getHelloPositions()
+                        ));
+                        serverWorker.start();
                     }
                     return true;
                 } catch (Exception ex) {
@@ -498,12 +519,13 @@ public class ServerMainFrame extends JFrame {
                     boolean success = get();
                     if (success) {
                         isServerRunning = true;
+                        int activePort = serverWorker != null ? serverWorker.getLocalPort() : finalPort;
                         stopButton.setEnabled(true);
                         stopButton.setBackground(COLOR_DANGER);
                         stopButton.setForeground(Color.WHITE);
-                        statusBadge.setStatus(true, finalPort);
-                        statusMessageLabel.setText("Server đang ONLINE và lắng nghe trên cổng " + finalPort);
-                        appendLog("[INFO] Server bat dau lang nghe thanh cong tren port " + finalPort + " voi khoa '" + finalKey + "'");
+                        statusBadge.setStatus(true, activePort);
+                        statusMessageLabel.setText("Server đang ONLINE và lắng nghe trên cổng " + activePort);
+                        appendLog("[INFO] Server bat dau lang nghe tren port " + activePort + " voi khoa '" + finalKey + "'");
                     } else {
                         revertToStoppedState();
                         JOptionPane.showMessageDialog(ServerMainFrame.this,
@@ -518,7 +540,7 @@ public class ServerMainFrame extends JFrame {
     }
 
     /**
-     * Dừng Server: Dừng luồng nền và cập nhật lại giao diện.
+     * Dừng Server an toàn và cập nhật lại giao diện.
      */
     public void stopServer() {
         stopButton.setEnabled(false);
@@ -531,8 +553,12 @@ public class ServerMainFrame extends JFrame {
                     if (serverController != null) {
                         serverController.stop();
                     }
+                    if (serverWorker != null) {
+                        serverWorker.stop();
+                        serverWorker = null;
+                    }
                 } catch (Exception ex) {
-                    appendLog("[WARN] Lỗi khi dừng controller: " + ex.getMessage());
+                    appendLog("[WARN] Lỗi khi dừng worker: " + ex.getMessage());
                 }
                 return null;
             }
@@ -562,10 +588,36 @@ public class ServerMainFrame extends JFrame {
         return isServerRunning;
     }
 
+    /**
+     * Ghi nhật ký Console thời gian thực kèm tính năng giới hạn số dòng (Memory leak protection)
+     * và tự động cuộn xuống cuối (Auto-scroll) (SRV-05).
+     */
     public void appendLog(String message) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(() -> appendLog(message));
+            return;
+        }
+
         String timestamp = TIME_FORMAT.format(new Date());
         logTextArea.append("[" + timestamp + "] " + message + "\n");
         logLineCount.incrementAndGet();
+
+        // Tự động giới hạn số dòng hiển thị để tránh tràn bộ nhớ khi chạy lâu dài (SRV-05)
+        try {
+            int lineCount = logTextArea.getLineCount();
+            if (lineCount > MAX_LOG_LINES) {
+                int linesToRemove = lineCount - MAX_LOG_LINES;
+                int endOffset = logTextArea.getLineEndOffset(linesToRemove);
+                logTextArea.replaceRange("", 0, endOffset);
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Tự động cuộn xuống dòng mới nhất trên console log
+        if (autoScrollCheckBox == null || autoScrollCheckBox.isSelected()) {
+            logTextArea.setCaretPosition(logTextArea.getDocument().getLength());
+        }
+
         updateLogLinesDisplay();
     }
 
@@ -574,10 +626,15 @@ public class ServerMainFrame extends JFrame {
     }
 
     /**
-     * Thêm một dòng giao dịch vào bảng JTable Lịch sử.
+     * Thêm một dòng giao dịch vào bảng JTable Lịch sử và tự động cuộn xuống dòng mới nhất (SRV-05).
      */
     public void addHistoryRow(String clientIp, String fileName, String fileMode,
                               String originalContent, String encryptedContent, String helloPositions) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(() -> addHistoryRow(clientIp, fileName, fileMode, originalContent, encryptedContent, helloPositions));
+            return;
+        }
+
         int stt = historyTableModel.getRowCount() + 1;
         String timeStr = TIME_FORMAT.format(new Date());
 
@@ -597,6 +654,13 @@ public class ServerMainFrame extends JFrame {
                 encryptedShort,
                 helloPositions
         });
+
+        // Tự động cuộn xuống dòng mới nhất trên bảng JTable (SRV-05)
+        int lastRowIndex = historyTableModel.getRowCount() - 1;
+        if (lastRowIndex >= 0) {
+            Rectangle rect = historyTable.getCellRect(lastRowIndex, 0, true);
+            historyTable.scrollRectToVisible(rect);
+        }
 
         int processed = processedPacketCount.incrementAndGet();
         statsLabel.setText("Đã xử lý: " + processed + " gói tin");
