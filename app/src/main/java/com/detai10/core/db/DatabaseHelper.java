@@ -65,6 +65,17 @@ public class DatabaseHelper implements AutoCloseable {
 
     private static final String SQL_CLEAR_HISTORY = "DELETE FROM lich_su_xu_ly";
 
+    static {
+        try {
+            Class.forName("org.h2.Driver");
+        } catch (ClassNotFoundException ignored) {
+        }
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException ignored) {
+        }
+    }
+
     private static DatabaseHelper defaultInstance;
 
     private final String jdbcUrl;

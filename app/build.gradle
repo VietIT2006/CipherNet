@@ -105,3 +105,11 @@ tasks.register('runClient', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'com.detai10.client.ClientApp'
 }
+
+// Task chạy kiểm tra nhanh tầng Core độc lập (CORE-07)
+tasks.register('coreSelfCheck', JavaExec) {
+    group = 'verification'
+    description = 'Chạy lớp tự kiểm tra nhanh độc lập các mô-đun tầng Core (Headless)'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.detai10.core.CoreSelfCheck'
+}

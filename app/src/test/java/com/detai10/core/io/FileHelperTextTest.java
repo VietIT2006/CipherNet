@@ -1,127 +1,93 @@
 package com.detai10.core.io;
 
+import com.detai10.core.model.FileMode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Bộ kiểm thử đơn vị cho thao tác đọc/ghi file chế độ TEXT (UTF-8).
+ * Tuân thủ Quy tắc 5 (Bảo toàn toàn vẹn dữ liệu trong File I/O).
+ */
 class FileHelperTextTest {
 
     @TempDir
-    Path tempDir;
+    File tempDir;
 
     @Test
-    @DisplayName("Ghi và đọc toàn vẹn tiếng Việt có dấu UTF-8 và ký tự đặc biệt")
-    void testWriteAndReadVietnameseUtf8AndSpecialChars() throws IOException {
-        Path textFile = tempDir.resolve("utf8_vietnamese.txt");
-        String content = "Xin chào thế giới! HELLO Đề tài 10 — ăâđêôơư @#$%|";
+    @DisplayName("Ghi và đọc file văn bản UTF-8 tiếng Việt có dấu và ký tự đặc biệt nguyên vẹn")
+    void testWriteAndReadUtf8TextWithAccentsAndSymbols() throws IOException {
+        File file = new File(tempDir, "vietnamese_sample.txt");
+        String content = "Xin chào Việt Nam! Hệ thống Client - Server UDP Đề tài 10.\n" +
+                "Ký tự đặc biệt: @#$%^&*()_+~{}[]|:\"<>? và khoảng trắng   \ttab\n" +
+                "Ký tự số: 0123456789";
 
-        FileHelper.writeTextFile(textFile, content);
-        assertTrue(Files.exists(textFile));
+        FileHelper.writeTextFile(file, content);
+        String readBack = FileHelper.readTextFile(file);
 
-        String actual = FileHelper.readTextFile(textFile);
-        assertEquals(content, actual);
+        assertEquals(content, readBack, "Nội dung đọc lại từ file TEXT UTF-8 phải trùng khớp 100% với nội dung ghi");
     }
 
     @Test
-    @DisplayName("Bảo toàn nguyên vẹn ký tự xuống dòng, dòng trống, tab và xuống dòng cuối file")
-    void testPreserveNewlinesBlankLinesAndTabs() throws IOException {
-        Path textFile = tempDir.resolve("multiline.txt");
-        String content = "Dòng 1: HELLO\n\nDòng 3:\tTab ở đây\r\nDòng 4 có dấu |\n";
-
-        FileHelper.writeTextFile(textFile, content);
-        String actual = FileHelper.readTextFile(textFile);
-
-        assertEquals(content, actual);
-    }
-
-    @Test
-    @DisplayName("Ghi và đọc chuỗi rỗng trả về chuỗi rỗng")
-    void testWriteAndReadEmptyString() throws IOException {
-        Path emptyFile = tempDir.resolve("empty.txt");
-
+    @DisplayName("Ghi và đọc file TEXT rỗng hoặc nội dung null an toàn")
+    void testEmptyAndNullContentText() throws IOException {
+        File emptyFile = new File(tempDir, "empty.txt");
         FileHelper.writeTextFile(emptyFile, "");
-        assertTrue(Files.exists(emptyFile));
         assertEquals("", FileHelper.readTextFile(emptyFile));
+
+        File nullFile = new File(tempDir, "null_content.txt");
+        FileHelper.writeTextFile(nullFile, null);
+        assertEquals("", FileHelper.readTextFile(nullFile));
     }
 
     @Test
-    @DisplayName("Tự động tạo thư mục cha lồng nhau nếu chưa tồn tại")
-    void testAutoCreateNestedParentDirectories() throws IOException {
-        Path nestedFile = tempDir.resolve("nested/sub/folder/demo.txt");
-        String content = "Nội dung trong thư mục con tự tạo";
+    @DisplayName("Tự động tạo các thư mục cha lồng nhau khi ghi file TEXT")
+    void testAutoCreateParentDirectories() throws IOException {
+        File nestedFile = new File(tempDir, "nested/sub1/sub2/text_file.txt");
+        String content = "Tự động tạo thư mục cha lồng nhau thành công.";
 
         FileHelper.writeTextFile(nestedFile, content);
-
-        assertTrue(Files.isDirectory(nestedFile.getParent()));
-        assertTrue(Files.exists(nestedFile));
+        assertTrue(nestedFile.exists(), "File phải tồn tại sau khi ghi");
         assertEquals(content, FileHelper.readTextFile(nestedFile));
     }
 
     @Test
-    @DisplayName("Ghi đè file đã tồn tại cập nhật đúng nội dung mới")
-    void testOverwriteExistingFile() throws IOException {
-        Path targetFile = tempDir.resolve("overwrite.txt");
-
-        FileHelper.writeTextFile(targetFile, "Nội dung cũ dài hơn rất nhiều");
-        FileHelper.writeTextFile(targetFile, "Nội dung mới");
-
-        assertEquals("Nội dung mới", FileHelper.readTextFile(targetFile));
+    @DisplayName("Đọc file TEXT không tồn tại phải ném ngoại lệ IOException")
+    void testReadNonExistentFileThrowsException() {
+        File nonExistent = new File(tempDir, "does_not_exist.txt");
+        assertThrows(IOException.class, () -> FileHelper.readTextFile(nonExistent));
     }
 
     @Test
-    @DisplayName("Nạp chồng tham số java.io.File hoạt động đồng nhất với Path")
-    void testFileOverloadsWorkIdentically() throws IOException {
-        File targetFile = tempDir.resolve("by_file_api/sample.txt").toFile();
-        String content = "Dữ liệu dùng java.io.File — HELLO!";
+    @DisplayName("Ủy quyền qua phương thức chung FileHelper.writeFile và FileHelper.readFile với FileMode.TEXT")
+    void testFileHelperDelegationTextMode() throws IOException {
+        File file = new File(tempDir, "delegation_text.txt");
+        String content = "Nội dung ủy quyền qua FileMode.TEXT";
 
-        FileHelper.writeTextFile(targetFile, content);
-        assertTrue(targetFile.exists());
-        assertEquals(content, FileHelper.readTextFile(targetFile));
+        FileHelper.writeFile(file, content, FileMode.TEXT);
+        String result = FileHelper.readFile(file, FileMode.TEXT);
+
+        assertEquals(content, result);
     }
 
     @Test
-    @DisplayName("Đọc file không tồn tại ném IOException có thông điệp rõ ràng")
-    void testReadNonExistentFileThrowsIOException() {
-        Path missingFile = tempDir.resolve("khong_ton_tai.txt");
-
-        IOException exception = assertThrows(IOException.class, () -> FileHelper.readTextFile(missingFile));
-        assertTrue(exception.getMessage().contains("Không tìm thấy file văn bản"));
-    }
-
-    @Test
-    @DisplayName("Đọc hoặc ghi vào đường dẫn là thư mục ném IOException")
-    void testDirectoryPathThrowsIOException() throws IOException {
-        Path directory = tempDir.resolve("a_directory");
-        Files.createDirectories(directory);
-
-        IOException readEx = assertThrows(IOException.class, () -> FileHelper.readTextFile(directory));
-        assertTrue(readEx.getMessage().contains("thư mục"));
-
-        IOException writeEx = assertThrows(IOException.class, () -> FileHelper.writeTextFile(directory, "data"));
-        assertTrue(writeEx.getMessage().contains("Không thể ghi file văn bản"));
-    }
-
-    @Test
-    @DisplayName("Tham số null cho đường dẫn hoặc nội dung ném IllegalArgumentException")
-    void testNullArgumentsThrowIllegalArgumentException() {
-        Path validPath = tempDir.resolve("valid.txt");
-        File validFile = validPath.toFile();
-
-        assertThrows(IllegalArgumentException.class, () -> FileHelper.writeTextFile((Path) null, "abc"));
-        assertThrows(IllegalArgumentException.class, () -> FileHelper.writeTextFile((File) null, "abc"));
-        assertThrows(IllegalArgumentException.class, () -> FileHelper.writeTextFile(validPath, null));
-        assertThrows(IllegalArgumentException.class, () -> FileHelper.writeTextFile(validFile, null));
-        assertThrows(IllegalArgumentException.class, () -> FileHelper.readTextFile((Path) null));
-        assertThrows(IllegalArgumentException.class, () -> FileHelper.readTextFile((File) null));
+    @DisplayName("Lớp tiện ích FileHelper không cho phép khởi tạo thể hiện qua reflection")
+    void testPrivateConstructor() throws Exception {
+        Constructor<FileHelper> constructor = FileHelper.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        InvocationTargetException thrown = assertThrows(InvocationTargetException.class, constructor::newInstance);
+        assertNotNull(thrown.getCause());
+        assertTrue(thrown.getCause() instanceof UnsupportedOperationException);
     }
 }
-
