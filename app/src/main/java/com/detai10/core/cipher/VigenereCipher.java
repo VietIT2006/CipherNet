@@ -1,106 +1,138 @@
 package com.detai10.core.cipher;
 
-import java.util.Locale;
-
 /**
- * Thuật toán mã hóa & giải mã đa bảng thay thế Vigenère.
- * <p>
- * Tuân thủ nghiêm ngặt Quy tắc 4 (Quy chuẩn dự án):
- * - Chỉ dịch chuyển chữ cái tiếng Anh (A-Z, a-z).
- * - Bảo toàn nguyên vẹn số (0-9), khoảng trắng, dấu câu, ký hiệu đặc biệt, ký tự xuống dòng.
- * - Con trỏ khóa (key index) KHÔNG được tăng bước khi gặp ký tự không phải chữ cái.
- * - Khóa tự động chuẩn hóa chỉ giữ lại các chữ cái và chuyển thành chữ hoa.
+ * Bộ máy mã hóa và giải mã theo thuật toán Vigenère thuộc tầng Core (Headless).
+ *
+ * <p>Quy ước thuật toán:
+ * <ul>
+ *   <li>Chỉ biến đổi các chữ cái ASCII tiếng Anh ({@code A-Z}, {@code a-z}) và bảo toàn nguyên trạng
+ *       chữ hoa/chữ thường.</li>
+ *   <li>Mọi ký tự không phải chữ cái ASCII (chữ số, khoảng trắng, dấu câu, ký tự đặc biệt,
+ *       {@code \n}, {@code \t}, ký tự Unicode có dấu) được giữ nguyên và không làm tăng con trỏ khóa.</li>
+ *   <li>Khóa được chuẩn hóa bằng cách lọc chỉ giữ lại chữ cái ASCII ({@code A-Z}, {@code a-z}),
+ *       không phân biệt hoa/thường khi tính bước dịch {@code 0..25}.</li>
+ * </ul>
  */
 public final class VigenereCipher {
 
+    /** Khóa bí mật mặc định theo đặc tả đồ án */
     public static final String DEFAULT_KEY = "KEYSECRET";
 
+    /** Số lượng ký tự trong bảng chữ cái tiếng Anh (A-Z). */
+    private static final int ALPHABET_SIZE = 26;
+
     private VigenereCipher() {
-        throw new UnsupportedOperationException("Lớp tiện ích mã hóa không thể khởi tạo thể hiện.");
+        // Lớp tiện ích tĩnh, không cho phép khởi tạo.
     }
 
     /**
-     * Chuẩn hóa khóa: chỉ giữ lại chữ cái và chuyển về chữ hoa.
+     * Mã hóa văn bản thuần (plaintext) theo công thức Vigenère: {@code C_i = (P_i + K_j) mod 26}.
+     *
+     * @param plaintext chuỗi văn bản gốc cần mã hóa (không được {@code null}).
+     * @param key       khóa mã hóa chứa ít nhất một chữ cái ASCII ({@code A-Z}, {@code a-z}).
+     * @return chuỗi bản mã đã bảo toàn chữ hoa/thường và mọi ký tự không phải chữ cái ASCII.
+     * @throws IllegalArgumentException nếu {@code plaintext} là {@code null} hoặc {@code key}
+     *                                  không hợp lệ (null, rỗng hoặc không có chữ cái ASCII).
      */
-    public static String normalizeKey(String key) {
+    public static String encrypt(String plaintext, String key) {
+        return transform(plaintext, key, true);
+    }
+
+    /**
+     * Giải mã bản mã (ciphertext) theo công thức Vigenère: {@code P_i = (C_i - K_j + 26) mod 26}.
+     *
+     * @param ciphertext chuỗi bản mã cần giải mã (không được {@code null}).
+     * @param key        khóa giải mã chứa ít nhất một chữ cái ASCII ({@code A-Z}, {@code a-z}).
+     * @return chuỗi văn bản gốc sau khi giải mã.
+     * @throws IllegalArgumentException nếu {@code ciphertext} là {@code null} hoặc {@code key}
+     *                                  không hợp lệ (null, rỗng hoặc không có chữ cái ASCII).
+     */
+    public static String decrypt(String ciphertext, String key) {
+        return transform(ciphertext, key, false);
+    }
+
+    /**
+     * Thực thi vòng lặp biến đổi ký tự chung cho cả mã hóa và giải mã.
+     */
+    private static String transform(String input, String key, boolean encrypt) {
+        int[] keyShifts = extractKeyShifts(key);
+        if (input == null) {
+            throw new IllegalArgumentException("Văn bản đầu vào không được null.");
+        }
+        if (input.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder result = new StringBuilder(input.length());
+        int keyIndex = 0;
+
+        for (int i = 0; i < input.length(); i++) {
+            char ch = input.charAt(i);
+            if (isAsciiUpper(ch)) {
+                int shift = keyShifts[keyIndex % keyShifts.length];
+                result.append(shiftChar(ch, 'A', shift, encrypt));
+                keyIndex++;
+            } else if (isAsciiLower(ch)) {
+                int shift = keyShifts[keyIndex % keyShifts.length];
+                result.append(shiftChar(ch, 'a', shift, encrypt));
+                keyIndex++;
+            } else {
+                // Giữ nguyên ký tự không phải chữ cái ASCII và KHÔNG tăng con trỏ khóa.
+                result.append(ch);
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * Dịch một ký tự chữ cái ASCII trong hệ quy chiếu 0..25, bảo toàn chữ hoa/thường theo {@code base}.
+     */
+    private static char shiftChar(char ch, char base, int shift, boolean encrypt) {
+        int value = ch - base;
+        int shifted = encrypt
+                ? (value + shift) % ALPHABET_SIZE
+                // Cộng ALPHABET_SIZE trước khi mod 26 để tránh kết quả âm trong Java.
+                : (value - shift + ALPHABET_SIZE) % ALPHABET_SIZE;
+        return (char) (base + shifted);
+    }
+
+    /**
+     * Chuẩn hóa khóa: chỉ giữ các chữ cái ASCII ({@code A-Z}, {@code a-z}) và quy đổi sang bước dịch 0..25.
+     * Ném {@link IllegalArgumentException} nếu khóa là {@code null} hoặc không còn chữ cái hợp lệ.
+     */
+    private static int[] extractKeyShifts(String key) {
         if (key == null) {
-            return DEFAULT_KEY;
+            throw new IllegalArgumentException("Khóa Vigenère không được null.");
         }
-        StringBuilder sb = new StringBuilder();
-        for (char c : key.toCharArray()) {
-            if (Character.isLetter(c)) {
-                sb.append(Character.toUpperCase(c));
+
+        int[] buffer = new int[key.length()];
+        int count = 0;
+
+        for (int i = 0; i < key.length(); i++) {
+            char ch = key.charAt(i);
+            if (isAsciiUpper(ch)) {
+                buffer[count++] = ch - 'A';
+            } else if (isAsciiLower(ch)) {
+                buffer[count++] = ch - 'a';
             }
         }
-        return sb.length() > 0 ? sb.toString() : DEFAULT_KEY;
+
+        if (count == 0) {
+            throw new IllegalArgumentException(
+                    "Khóa Vigenère không hợp lệ: phải chứa ít nhất một chữ cái tiếng Anh (A-Z, a-z).");
+        }
+
+        int[] shifts = new int[count];
+        System.arraycopy(buffer, 0, shifts, 0, count);
+        return shifts;
     }
 
-    /**
-     * Mã hóa chuỗi văn bản bằng thuật toán Vigenère với khóa chỉ định.
-     */
-    public static String encrypt(String plainText, String key) {
-        if (plainText == null || plainText.isEmpty()) {
-            return plainText;
-        }
-
-        String validKey = normalizeKey(key);
-        StringBuilder cipherText = new StringBuilder(plainText.length());
-        int keyIndex = 0;
-        int keyLength = validKey.length();
-
-        for (int i = 0; i < plainText.length(); i++) {
-            char c = plainText.charAt(i);
-
-            if (c >= 'A' && c <= 'Z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char encrypted = (char) ('A' + (c - 'A' + shift) % 26);
-                cipherText.append(encrypted);
-                keyIndex++;
-            } else if (c >= 'a' && c <= 'z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char encrypted = (char) ('a' + (c - 'a' + shift) % 26);
-                cipherText.append(encrypted);
-                keyIndex++;
-            } else {
-                // Ký tự số, khoảng trắng, ký hiệu đặc biệt -> Giữ nguyên, không tăng keyIndex
-                cipherText.append(c);
-            }
-        }
-
-        return cipherText.toString();
+    private static boolean isAsciiUpper(char ch) {
+        return ch >= 'A' && ch <= 'Z';
     }
 
-    /**
-     * Giải mã chuỗi văn bản đã mã hóa Vigenère về văn bản gốc ban đầu.
-     */
-    public static String decrypt(String cipherText, String key) {
-        if (cipherText == null || cipherText.isEmpty()) {
-            return cipherText;
-        }
-
-        String validKey = normalizeKey(key);
-        StringBuilder plainText = new StringBuilder(cipherText.length());
-        int keyIndex = 0;
-        int keyLength = validKey.length();
-
-        for (int i = 0; i < cipherText.length(); i++) {
-            char c = cipherText.charAt(i);
-
-            if (c >= 'A' && c <= 'Z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char decrypted = (char) ('A' + (c - 'A' - shift + 26) % 26);
-                plainText.append(decrypted);
-                keyIndex++;
-            } else if (c >= 'a' && c <= 'z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char decrypted = (char) ('a' + (c - 'a' - shift + 26) % 26);
-                plainText.append(decrypted);
-                keyIndex++;
-            } else {
-                plainText.append(c);
-            }
-        }
-
-        return plainText.toString();
+    private static boolean isAsciiLower(char ch) {
+        return ch >= 'a' && ch <= 'z';
     }
 }
