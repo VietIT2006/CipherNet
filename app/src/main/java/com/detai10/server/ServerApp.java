@@ -1,9 +1,12 @@
 package com.detai10.server;
 
+import com.detai10.server.ui.ServerMainFrame;
+
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
- * Điểm khởi chạy chính (Main Entry Point) của ứng dụng Server.
+ * Điểm khởi chạy chính (Main Entry Point) của ứng dụng UDP Server (SRV-01).
  */
 public class ServerApp {
 
@@ -13,9 +16,15 @@ public class ServerApp {
         System.out.println("  Java Version: " + System.getProperty("java.version"));
         System.out.println("==================================================");
 
+        // Thiết lập giao diện hệ thống (System Look and Feel)
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {
+        }
+
         SwingUtilities.invokeLater(() -> {
-            // Khởi tạo giao diện Server khi có ServerMainFrame
-            System.out.println("[INFO] Khởi tạo luồng giao diện Server...");
+            ServerMainFrame frame = new ServerMainFrame();
+            frame.setVisible(true);
         });
     }
 }
