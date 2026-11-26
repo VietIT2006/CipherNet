@@ -34,3 +34,7 @@ Follow these mandatory project conventions:
 7. TESTING:
 - Use JUnit 5 with `@TempDir` for testing FileHelper. Do not write test files to workspace roots.
 - Always run `./gradlew test` (or `.\scripts\test-headless.bat`) to verify.
+
+8. ARCHITECTURE DIRECTORY IMMUTABILITY (STRICT READ-ONLY):
+- All files and folders inside `architecture/` are frozen and strictly read-only.
+- Never modify, create, delete, or rename any file inside `architecture/`.

@@ -38,3 +38,7 @@ You must adhere to the following strict architectural rules:
 - Client UDP operations must run on `SwingWorker` with loading indicators.
 - All UI updates must be wrapped in `SwingUtilities.invokeLater()`.
 - Do NOT use absolute layout (`setLayout(null)`). See `.agents/rules/07-ui-swing-guidelines.md`.
+
+## 8. Architecture Folder Immutability (Strict Read-Only)
+- The entire `architecture/` directory (`specs/`, `tasks/`, `database/`, `docs/`, `verification/`) is the FROZEN Single Source of Truth.
+- Agents MUST NEVER modify, add, delete, or rename any file or directory inside `architecture/`. All files inside `architecture/` are strictly READ-ONLY.

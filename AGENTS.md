@@ -65,6 +65,11 @@ Agent không được tự suy đoán hoặc sáng tạo ngoài phạm vi đã �
 ### 🔴 Quy tắc 6: An toàn CSDL (Zero SQL Injection)
 - Mọi câu lệnh SQL truy vấn và ghi dữ liệu phải dùng `PreparedStatement` với tham số `?`. Tuyệt đối không cộng chuỗi SQL.
 
+### 🔴 Quy tắc 7: Bất biến thư mục Architecture (Architecture Immutability Constraint)
+- Thư mục `architecture/` (bao gồm `architecture/specs/`, `architecture/tasks/`, `architecture/database/`, `architecture/docs/`, `architecture/verification/`, v.v.) là **Nguồn sự thật duy nhất (Single Source of Truth) đã được phê duyệt và ĐÓNG BĂNG (STRICTLY READ-ONLY)**.
+- Mọi Agent tuyệt đối **KHÔNG ĐƯỢC PHÉP CHỈNH SỬA, THÊM, XÓA HOẶC ĐỔI TÊN** bất kỳ tệp tin hay thư mục nào bên trong `architecture/`. Mọi tệp trong thư mục này chỉ được đọc (Read-Only) để tham chiếu yêu cầu nghiệp vụ.
+- Toàn bộ công việc phát triển mã nguồn, kiểm thử, script chỉ được thực hiện trong `app/`, `scripts/`, hoặc các tệp cấu hình được phép ở thư mục gốc. Mọi vi phạm can thiệp vào `architecture/` đều bị coi là vi phạm nghiêm trọng Hiến pháp Tác nghiệp.
+
 ---
 
 ## 4. Quy trình tác nghiệp 5 bước cho Agent (Agent Workflow)

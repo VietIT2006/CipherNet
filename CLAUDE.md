@@ -19,6 +19,7 @@
   - `BINARY`: `DataOutputStream(BufferedOutputStream)` / `DataInputStream(BufferedInputStream)` with `writeUTF()`/`readUTF()`.
 - **Database:** MySQL JDBC via `PreparedStatement` on table `lich_su_xu_ly`.
 - **Threading:** Datagram socket listener runs in `UdpServerWorker` thread. GUI updates dispatched via `SwingUtilities.invokeLater()`.
+- **Architecture Directory Immutability:** The entire `architecture/` directory is strictly READ-ONLY. AI agents must NEVER modify, add, or delete any files in `architecture/`.
 
 ## Reference Documents
 - High-level Agent Constitution: `AGENTS.md`
