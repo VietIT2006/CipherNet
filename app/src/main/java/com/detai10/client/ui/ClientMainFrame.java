@@ -269,16 +269,28 @@ public class ClientMainFrame extends JFrame {
     }
 
     private void updateCounterAndClearHighlights() {
+        contentArea.getHighlighter().removeAllHighlights();
         String text = contentArea.getText();
         int bytes = text.getBytes(StandardCharsets.UTF_8).length;
         counterLabel.setText(text.length() + " ký tự | " + bytes + " / " + UdpProtocol.MAX_PAYLOAD_BYTES + " bytes UTF-8");
         counterLabel.setForeground(bytes > UdpProtocol.MAX_PAYLOAD_BYTES ? ERROR_COLOR : Color.DARK_GRAY);
     }
 
+    static boolean isFileSizeAllowed(File file) {
+        return file != null && file.isFile() && file.length() <= UdpProtocol.MAX_PAYLOAD_BYTES;
+    }
+
     private void chooseFileFromDisk() {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File selected = chooser.getSelectedFile();
+            if (!isFileSizeAllowed(selected)) {
+                JOptionPane.showMessageDialog(this,
+                        "Kích thước file (" + selected.length() + " bytes) vượt quá giới hạn an toàn "
+                                + UdpProtocol.MAX_PAYLOAD_BYTES + " bytes!",
+                        "File quá lớn", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             try {
                 String content = Files.readString(selected.toPath(), StandardCharsets.UTF_8);
                 contentArea.setText(content);
@@ -354,18 +366,20 @@ public class ClientMainFrame extends JFrame {
         worker.execute();
     }
 
-    private void setSendingState(boolean sending) {
+    void setSendingState(boolean sending) {
         sendButton.setEnabled(!sending);
         loadFileButton.setEnabled(!sending);
         clearButton.setEnabled(!sending);
         changeServerButton.setEnabled(!sending);
+        contentArea.setEditable(!sending);
+        fileNameField.setEnabled(!sending);
         if (sending) {
             statusLabel.setText("Đang gửi gói DATA và chờ phản hồi từ Server...");
             statusLabel.setForeground(WARNING_COLOR);
         }
     }
 
-    private void highlightHelloKeywords(String text) {
+    void highlightHelloKeywords(String text) {
         Highlighter highlighter = contentArea.getHighlighter();
         highlighter.removeAllHighlights();
         Highlighter.HighlightPainter painter = new DefaultHighlighter.DefaultHighlightPainter(HIGHLIGHT_COLOR);

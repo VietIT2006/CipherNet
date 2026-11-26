@@ -43,6 +43,12 @@ public final class UdpProtocol {
 
     public static final int DEFAULT_PORT = 9876;
 
+    private static final java.util.Set<String> WINDOWS_RESERVED_NAMES = java.util.Set.of(
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    );
+
     private UdpProtocol() {
         throw new UnsupportedOperationException("Lớp tiện ích giao thức không thể khởi tạo thể hiện.");
     }
@@ -64,19 +70,28 @@ public final class UdpProtocol {
     }
 
     /**
-     * Kiểm tra tên file hợp lệ và chặn tấn công Path Traversal (../, ..\, ký tự cấm).
+     * Kiểm tra tên file hợp lệ và chặn tấn công Path Traversal (../, ..\, ký tự điều khiển, ký tự cấm, tên dành riêng).
      */
     public static String sanitizeFileName(String rawFileName) {
         if (rawFileName == null || rawFileName.trim().isEmpty()) {
             throw new IllegalArgumentException("Ten file khong duoc de trong");
         }
+        if (rawFileName.chars().anyMatch(ch -> ch < 0x20 || ch == 0x7F)) {
+            throw new IllegalArgumentException("Ten file khong duoc chua ky tu dieu khien");
+        }
         String trimmed = rawFileName.trim();
         if (trimmed.equals(".") || trimmed.equals("..")
+                || trimmed.endsWith(".")
                 || trimmed.contains("..")
                 || trimmed.contains("/")
                 || trimmed.contains("\\")
                 || trimmed.matches(".*[:*?\"<>|].*")) {
             throw new IllegalArgumentException("Ten file khong hop le hoac chua ky tu cam: " + trimmed);
+        }
+        int dotIndex = trimmed.indexOf('.');
+        String baseName = (dotIndex >= 0 ? trimmed.substring(0, dotIndex) : trimmed).toUpperCase(java.util.Locale.ROOT);
+        if (WINDOWS_RESERVED_NAMES.contains(baseName)) {
+            throw new IllegalArgumentException("Ten file trung voi ten thiet bi danh rieng cua he thong: " + trimmed);
         }
         return trimmed;
     }
