@@ -7,7 +7,7 @@
 
 ## 📌 1. Tổng quan dự án
 
-Dự án hiện thực mô hình Client – Server phân tán sử dụng Java Socket với giao thức UDP. Hệ thống cho phép Client kết nối, kiểm tra tính sẵn sàng (Healthcheck PING/PONG), gửi dữ liệu văn bản theo chế độ tùy chọn; Server tiếp nhận gói tin, ghi nhận lịch sử vào cơ sở dữ liệu qua JDBC, thực hiện mã hóa Vigenère, ghi và đọc file kiểm chứng, giải mã và phân tích tìm kiếm từ khóa `"HELLO"` để phản hồi kết quả về cho Client.
+Dự án hiện thực mô hình Client – Server phân tán sử dụng Java Socket với giao thức UDP. Hệ thống cho phép Client kết nối, kiểm tra tính sẵn sàng (Healthcheck PING/PONG), gửi dữ liệu văn bản theo chế độ tùy chọn; Server tiếp nhận gói tin, thực hiện mã hóa Vigenère, ghi và đọc file kiểm chứng, giải mã và phân tích tìm kiếm từ khóa `"HELLO"`, lưu lịch sử vào cơ sở dữ liệu qua JDBC rồi phản hồi kết quả về cho Client.
 
 ### 🌟 Điểm nổi bật
 - **Mô hình kiến trúc Spec-driven & AI-ready:** Toàn bộ đặc tả, sơ đồ kiến trúc, tài liệu ngữ cảnh được quy hoạch chi tiết tại thư mục `architecture/` trước khi lập trình.
@@ -25,9 +25,9 @@ Dự án hiện thực mô hình Client – Server phân tán sử dụng Java S
 | **Mạng** | Java UDP Socket | `DatagramSocket`, `DatagramPacket` |
 | **I/O File** | Java I/O (2 chế độ) | `BufferedWriter`/`BufferedReader` (Text) & `DataOutputStream`/`DataInputStream` bọc Buffer (Binary) |
 | **Bảo mật** | Thuật toán Vigenère | Dịch chuyển mã hóa/giải mã ký tự `A-Z`/`a-z`, bảo toàn ký tự số, ký hiệu |
-| **Cơ sở dữ liệu** | JDBC (MySQL / SQL Server) | Lưu vết lịch sử giao dịch qua `PreparedStatement` |
-| **Kiểm thử** | JUnit 5 | Unit Test tự động cho tầng Core Logic |
-| **CI/CD** | GitHub Actions | Tự động hóa Build, Test và Release Fat JAR (`udp-server.jar`, `udp-client.jar`) |
+| **Cơ sở dữ liệu** | JDBC (MySQL 8 / H2) | Lưu vết lịch sử giao dịch qua `PreparedStatement` (H2 In-Memory khi test CI) |
+| **Kiểm thử** | JUnit 5 | Unit Test, E2E Socket Test & Stress Test tự động |
+| **CI/CD** | GitHub Actions | Tự động hóa Build, Test, CodeQL và Release Fat JAR (`udp-server.jar`, `udp-client.jar`) |
 
 ---
 
@@ -54,29 +54,29 @@ Giao thức trao đổi dữ liệu tùy biến giữa Client và Server:
 
 ## 🔄 4. Luồng xử lý dữ liệu tại Server
 
-```
-[Client] Gửi gói tin DATA
+```text
+[Client] Gửi gói tin DATA|<mode>|<fileName>|<content>
        │
        ▼ (UDP Socket)
 [Server] UdpServerWorker nhận gói tin
        │
-       ├─► 1. Lưu bản ghi vào CSDL (bảng lich_su_xu_ly qua JDBC)
+       ├─► 1. Bóc tách gói tin an toàn (split("\\|", 4)) & kiểm tra tên file (NFR-02)
        │
        ├─► 2. Mã hóa nội dung bằng thuật toán Vigenère (Key từ Server GUI)
        │
-       ├─► 3. Ghi dữ liệu mã hóa ra File theo chế độ:
+       ├─► 3. Ghi dữ liệu mã hóa ra File (đồng bộ theo tên file EX-06):
        │      • TEXT: BufferedWriter / BufferedReader (UTF-8)
        │      • BINARY: DataOutputStream bọc BufferedOutputStream (writeUTF)
        │
-       ├─► 4. Đọc lại nội dung từ file vừa ghi để kiểm chứng
+       ├─► 4. Đọc lại bản mã từ file vừa ghi để kiểm chứng toàn vẹn I/O (BR-01)
        │
        ├─► 5. Giải mã nội dung bằng khóa Vigenère
        │
        ├─► 6. Tìm tất cả vị trí xuất hiện của từ khóa "HELLO" (KeywordFinder)
        │
-       ├─► 7. Cập nhật giao diện Server (SwingUtilities.invokeLater)
+       ├─► 7. Lưu bản ghi vào CSDL (bảng lich_su_xu_ly) & cập nhật Server GUI (invokeLater)
        │
-       └─► 8. Đóng gói & gửi kết quả về lại Client qua UDP
+       └─► 8. Đóng gói RESULT|OK|... hoặc RESULT|NOT_FOUND|... gửi về Client qua UDP
 ```
 
 ---
@@ -84,29 +84,30 @@ Giao thức trao đổi dữ liệu tùy biến giữa Client và Server:
 ## 📂 5. Cấu trúc thư mục dự án
 
 ```text
-đề_tài_số_10/
+CipherNet/
 ├── .github/
 │   └── workflows/
-│       ├── java-ci.yml                 # CI: Tự động build & chạy JUnit 5
-│       └── java-cd-release.yml         # CD: Đóng gói Fat JAR & tạo GitHub Release
-├── architecture/                       # Tài liệu đặc tả & thiết kế hệ thống
-│   ├── AGENTS.md                       # Quy chuẩn phối hợp Agent / Developers
-│   ├── CONTEXT.md                      # Bối cảnh & phạm vi kỹ thuật của dự án
-│   ├── START.md                        # Hướng dẫn bắt đầu nhanh cho thành viên mới
-│   ├── SRS.md                          # Đặc tả yêu cầu phần mềm
-│   ├── udp-protocol.md                 # Đặc tả chi tiết giao thức UDP
-│   ├── vigenere-and-io.md              # Đặc tả thuật toán Vigenère & cơ chế File I/O
+│       ├── codeql.yml                  # Phân tích bảo mật tĩnh CodeQL (JDK 17)
+│       ├── java-ci.yml                 # CI: Tự động build, JUnit 5 & JaCoCo (JDK 17)
+│       └── java-cd-release.yml         # CD: Đóng gói Fat JAR & tạo GitHub Release (tag v*)
+├── architecture/                       # Tài liệu đặc tả & thiết kế hệ thống (Read-Only)
 │   ├── database/
-│   │   ├── schema.sql                  # Script tạo bảng lich_su_xu_ly
+│   │   ├── schema.sql                  # Script tạo bảng lich_su_xu_ly & sinh_vien
 │   │   └── sample_data.sql             # Dữ liệu mẫu kiểm thử
 │   ├── diagrams/                       # Sơ đồ Mermaid (.mmd & .png)
+│   ├── docs/                           # Quy chuẩn CODE, TEST, WORKFLOW, UI/UX
+│   ├── specs/                          # SRS.md, udp-protocol.md, vigenere-and-io.md
 │   ├── tasks/                          # Chi tiết từng Task theo Sprint (DEP, CORE, SRV, UI, VER)
 │   └── verification/                   # Hồ sơ & bằng chứng nghiệm thu từng Sprint
-├── app/                                # Mã nguồn ứng dụng
+├── app/                                # Mã nguồn ứng dụng Gradle
 │   ├── src/
-│   │   ├── main/java/                  # Source code (Core, Server, Client)
-│   │   └── test/java/                  # Unit Test (JUnit 5 độc lập với UI)
-│   └── build.gradle (hoặc pom.xml)
+│   │   ├── main/java/com/detai10/      # Source code (core, server, client)
+│   │   └── test/java/com/detai10/      # Unit, E2E Socket & Stress Tests (JUnit 5)
+│   └── build.gradle
+├── scripts/                            # Batch scripts build, test-headless, init-db, run
+├── AGENTS.md                           # Quy chuẩn & Hiến pháp AI Agent
+├── CONTEXT.md                          # Bối cảnh & ngôn ngữ miền nghiệp vụ
+├── START.md                            # Hướng dẫn cài đặt & khởi chạy nhanh
 ├── PRODUCT BACKLOG.docx                # Tài liệu Product Backlog gốc
 └── README.md                           # Tài liệu tổng quan dự án
 ```
@@ -155,7 +156,7 @@ Dự án được chia thành **4 Sprint**, gồm **24 Tasks** với tổng số
 
 1. **Chốt Context & Spec:** Định nghĩa rõ file ngữ cảnh (`CONTEXT.md`, `AGENTS.md`), giao thức và sơ đồ trước khi code.
 2. **Chia Task nguyên tử:** Mỗi task được mô tả cụ thể trong `architecture/tasks/<TASK_ID>.md` với mục tiêu, file tác động, yêu cầu kỹ thuật và checklist hoàn thành.
-3. **Nhánh Git & TDD:** Phát triển theo nhánh tính năng tách từ `develop` (ví dụ: `feat/CORE-02-vigenere-cipher`). Logic cốt lõi được kiểm thử tự động với JUnit 5.
+3. **Nhánh Git & TDD:** Phát triển theo nhánh tính năng tách từ nhánh chính (ví dụ: `feat/CORE-02-vigenere-cipher`). Logic cốt lõi được kiểm thử tự động với JUnit 5.
 4. **Pull Request & CI Gate:** Mọi PR bắt buộc phải vượt qua CI workflow (`java-ci.yml`) trước khi được merge.
 5. **Verification & Release CD:** Lưu lại bằng chứng kiểm chứng tại `architecture/verification/` sau mỗi Sprint và kích hoạt CD khi gắn thẻ tag phiên bản (`v*`).
 
@@ -186,32 +187,32 @@ CREATE TABLE IF NOT EXISTS lich_su_xu_ly (
 
 ### Bước 2: Build dự án
 ```bash
-# Build & chạy Unit Test
-./gradlew test   # hoặc: mvn test
+# Build & chạy toàn bộ Unit Test, E2E Socket Test & Stress Test (tại thư mục gốc)
+./gradlew test        # Windows: .\gradlew.bat test
 
-# Đóng gói Fat JAR độc lập
-./gradlew shadowJar   # hoặc: mvn package
+# Đóng gói 2 Fat JAR độc lập
+./gradlew shadowJar   # Windows: .\gradlew.bat shadowJar
 ```
 
 ### Bước 3: Khởi chạy ứng dụng
 1. **Chạy Server:**
    ```bash
-   java -jar udp-server.jar
+   java -jar app/build/libs/udp-server.jar
    ```
    - Nhập Port lắng nghe (mặc định: `9876`).
    - Nhập Key mã hóa Vigenère (ví dụ: `KEYSECRET`).
-   - Nhấn **Start Server**.
+   - Nhấn **Khởi động (Start)**.
 
 2. **Chạy Client:**
    ```bash
-   java -jar udp-client.jar
+   java -jar app/build/libs/udp-client.jar
    ```
    - Nhập IP Server (ví dụ: `127.0.0.1`) và Port (`9876`).
    - Nhấn **Kết nối** (gửi PING kiểm tra).
-   - Sau khi kết nối thành công, nhập nội dung văn bản, tên file và chọn chế độ lưu (`TEXT` hoặc `BINARY`), nhấn **Gửi dữ liệu**.
+   - Sau khi kết nối thành công, nhập nội dung văn bản, tên file và chọn chế độ lưu (`TEXT` hoặc `BINARY`), nhấn **Gửi dữ liệu tới Server**.
 
 ---
 
 ## 📝 9. Ghi chú quan trọng (Technical Note)
 - **Về phạm vi đề tài:** Tiêu đề đồ án là *"Quản lí Sinh Viên"* tuy nhiên nội dung kỹ thuật trọng tâm theo yêu cầu là truyền nhận gói tin qua UDP, mã hóa/giải mã Vigenère, lưu trữ File 2 chế độ và tìm kiếm vị trí từ khóa `"HELLO"`.
-- Nếu có yêu cầu tích hợp thêm bảng thông tin sinh viên, schema có thể mở rộng bổ sung bảng `sinh_vien` phục vụ quản lý song song.
+- Nếu có yêu cầu tích hợp thêm bảng thông tin sinh viên, schema đã có sẵn bảng `sinh_vien` phục vụ mở rộng song song.
