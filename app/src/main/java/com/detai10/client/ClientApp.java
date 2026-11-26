@@ -1,6 +1,9 @@
 package com.detai10.client;
 
+import com.detai10.client.ui.ConnectFrame;
+
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  * Điểm khởi chạy chính (Main Entry Point) của ứng dụng Client.
@@ -14,8 +17,11 @@ public class ClientApp {
         System.out.println("==================================================");
 
         SwingUtilities.invokeLater(() -> {
-            // Khởi tạo màn hình kết nối ConnectFrame
-            System.out.println("[INFO] Khởi tạo luồng giao diện Client...");
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ignored) {
+            }
+            new ConnectFrame().setVisible(true);
         });
     }
 }

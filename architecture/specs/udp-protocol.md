@@ -52,8 +52,8 @@ Dùng khi Server xử lý xong và phản hồi về cho Client.
 
 **Cú pháp thành công:**
 ```text
-RESULT|FOUND|<indices_separated_by_comma>
-# Ví dụ: RESULT|FOUND|0, 15, 32
+RESULT|OK|<message>
+# Ví dụ: RESULT|OK|Vi tri HELLO: [0, 15]
 hoặc:
 RESULT|NOT_FOUND|Khong tim thay tu khoa HELLO
 ```

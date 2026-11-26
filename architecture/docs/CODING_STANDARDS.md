@@ -4,7 +4,7 @@ Tài liệu này quy định các tiêu chuẩn kỹ thuật chi tiết khi vi�
 
 ---
 
-## 1. Chuẩn Java 21 LTS & Phong cách viết mã (Coding Style)
+## 1. Chuẩn Java 17 LTS & Phong cách viết mã (Coding Style)
 - **Tên Package:** Chữ thường toàn bộ, phân cấp rõ ràng (ví dụ: `com.detai10.core.cipher`).
 - **Tên Lớp (Class / Interface / Enum):** Danh từ, viết theo kiểu `PascalCase` (ví dụ: `VigenereCipher`, `UdpServerWorker`, `FileMode`).
 - **Tên Phương thức (Method):** Động từ hoặc cụm động từ, viết theo kiểu `camelCase` (ví dụ: `encrypt()`, `parsePacket()`, `findKeywordIndices()`).
@@ -17,7 +17,7 @@ Tài liệu này quy định các tiêu chuẩn kỹ thuật chi tiết khi vi�
 ### 2.1. Quản lý Bộ đệm (Buffer Allocation)
 - Luôn cấp phát buffer đủ lớn để tiếp nhận gói tin:
   ```java
-  byte[] buffer = new byte[8192]; // Bộ đệm 8KB tiêu chuẩn
+  byte[] buffer = new byte[65507]; // Bộ đệm chuẩn UDP IPv4 (UdpProtocol.BUFFER_SIZE)
   DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
   socket.receive(packet);
   
@@ -112,13 +112,13 @@ public static String readBinaryFile(Path filePath) throws IOException {
 - Luôn sử dụng `PreparedStatement` với tham số ràng buộc `?`.
 - Cấu trúc mẫu ghi bản ghi:
   ```java
-  String sql = "INSERT INTO lich_su_xu_ly (client_ip, file_name, file_mode, original_content, encrypted_content, hello_positions) "
+  String sql = "INSERT INTO lich_su_xu_ly (client_ip, file_name, io_mode, original_content, encrypted_content, hello_positions) "
              + "VALUES (?, ?, ?, ?, ?, ?)";
   try (Connection conn = getConnection();
        PreparedStatement ps = conn.prepareStatement(sql)) {
       ps.setString(1, clientIp);
       ps.setString(2, fileName);
-      ps.setString(3, mode);
+      ps.setString(3, ioMode);
       ps.setString(4, originalContent);
       ps.setString(5, encryptedContent);
       ps.setString(6, helloPositions);

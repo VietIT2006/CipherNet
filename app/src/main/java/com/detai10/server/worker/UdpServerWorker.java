@@ -1,189 +1,119 @@
 package com.detai10.server.worker;
 
-import javax.swing.SwingUtilities;
+import com.detai10.core.cipher.VigenereCipher;
+import com.detai10.core.db.DatabaseHelper;
+import com.detai10.core.db.HistoryRecord;
+import com.detai10.core.io.FileHelper;
+import com.detai10.core.model.FileMode;
+import com.detai10.core.protocol.UdpProtocol;
+import com.detai10.core.search.KeywordFinder;
+
+import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
- * Worker Thread chuyên trách lắng nghe socket UDP và điều phối xử lý gói tin (SRV-02).
+ * Worker Thread chuyên trách lắng nghe và xử lý các gói tin UDP từ Client (SRV-02, SRV-03).
  * <p>
- * Yêu cầu kỹ thuật & Kiến trúc:
- * 1. Chạy trên Worker Thread độc lập để không làm nghẽn Event Dispatch Thread (EDT) của giao diện Swing.
- * 2. Mở {@link DatagramSocket} trên cổng chỉ định với mảng buffer kích thước tối đa 65,507 bytes (Max UDP Payload).
- * 3. Tự động nhận diện gói tin Healthcheck {@code PING} (case-insensitive) và gửi phản hồi {@code PONG} tức thì (&lt; 50ms).
- * 4. Chuyển giao các gói tin dữ liệu khác cho {@link PacketHandler} để xử lý đa luồng qua {@link ExecutorService}.
- * 5. Mọi thao tác cập nhật giao diện (Log, thống kê) đều được bọc an toàn trong {@code SwingUtilities.invokeLater()}.
- * 6. Cơ chế dừng an toàn (Graceful Shutdown): Đóng socket, ngắt thread, bắt {@link SocketException} mà không gây crash hay rò rỉ tài nguyên mạng.
+ * Đảm bảo các quy tắc SRS:
+ * - BR-01: Bắt buộc đọc ngược bản mã từ file trên đĩa rồi mới giải mã để kiểm chứng I/O.
+ * - NFR-02: Chuẩn hóa và xác thực đường dẫn file nằm trong thư mục {@code storageDir}.
+ * - EX-06: Đồng bộ hóa thao tác ghi/đọc trên cùng một tên file khi nhiều Client gửi đồng thời.
+ * - EX-05: Xử lý lỗi CSDL an toàn (ghi log cảnh báo và tiếp tục phản hồi UDP không sập Server);
+ *          lỗi I/O hoặc định dạng gói tin phản hồi {@code ERROR|...}.
  */
-public class UdpServerWorker implements Runnable, AutoCloseable {
-
-    /** Kích thước mảng đệm tối đa của gói tin UDP (65,507 bytes = 65,535 - 20 IP header - 8 UDP header) */
-    public static final int BUFFER_SIZE = 65507;
-
-    /** Thông điệp kiểm tra kết nối (Healthcheck) */
-    public static final String PING = "PING";
-    public static final String PONG = "PONG";
+public class UdpServerWorker implements Runnable {
 
     private final int port;
+    private volatile String cipherKey;
+    private final File storageDir;
+    private final DatabaseHelper dbHelper;
     private final ExecutorService requestPool;
-    private volatile Consumer<String> logListener;
-    private volatile PacketHandler packetHandler;
+    private final Consumer<String> logListener;
+    private final Consumer<HistoryRecord> recordListener;
+    private final ConcurrentHashMap<String, Object> fileLocks = new ConcurrentHashMap<>();
 
     private volatile DatagramSocket socket;
     private volatile boolean running = false;
     private Thread workerThread;
 
-    /**
-     * Interface chức năng xử lý các gói tin nhận được ngoài PING (phục vụ mở rộng tích hợp cho SRV-03/SRV-04).
-     */
-    @FunctionalInterface
-    public interface PacketHandler {
-        void handlePacket(byte[] data, int length, InetAddress clientAddress, int clientPort);
-    }
-
-    /**
-     * Khởi tạo UdpServerWorker với cổng chỉ định.
-     *
-     * @param port Cổng UDP cần lắng nghe (1024 - 65535, hoặc 0 để lấy cổng ngẫu nhiên khả dụng)
-     */
-    public UdpServerWorker(int port) {
-        this(port, null, null);
-    }
-
-    /**
-     * Khởi tạo UdpServerWorker với cổng và listener ghi log.
-     *
-     * @param port        Cổng UDP cần lắng nghe
-     * @param logListener Bộ lắng nghe để ghi vết thông điệp log
-     */
-    public UdpServerWorker(int port, Consumer<String> logListener) {
-        this(port, logListener, null);
-    }
-
-    /**
-     * Khởi tạo UdpServerWorker đầy đủ tham số.
-     *
-     * @param port          Cổng UDP cần lắng nghe
-     * @param logListener   Bộ lắng nghe ghi log (tự động đẩy lên EDT nếu có)
-     * @param packetHandler Bộ xử lý gói tin tùy biến
-     */
-    public UdpServerWorker(int port, Consumer<String> logListener, PacketHandler packetHandler) {
+    public UdpServerWorker(int port, String cipherKey, File storageDir, DatabaseHelper dbHelper,
+                           Consumer<String> logListener, Consumer<HistoryRecord> recordListener) {
         this.port = port;
+        this.cipherKey = VigenereCipher.normalizeKey(
+                cipherKey != null && !cipherKey.trim().isEmpty() ? cipherKey : VigenereCipher.DEFAULT_KEY);
+        this.storageDir = storageDir != null ? storageDir : new File("server_storage");
+        this.dbHelper = dbHelper != null ? dbHelper : DatabaseHelper.getInstance();
         this.logListener = logListener;
-        this.packetHandler = packetHandler;
-        this.requestPool = Executors.newFixedThreadPool(10, r -> {
-            Thread t = new Thread(r, "UdpServerWorker-Pool");
-            t.setDaemon(true);
-            return t;
-        });
+        this.recordListener = recordListener;
+        this.requestPool = Executors.newFixedThreadPool(10);
     }
 
-    /**
-     * Khởi động socket UDP và bắt đầu vòng lặp lắng nghe trên thread nền.
-     *
-     * @throws SocketException Nếu cổng bị chiếm dụng hoặc không thể mở socket
-     */
     public synchronized void start() throws SocketException {
         if (running) {
             return;
         }
-
+        if (!storageDir.exists()) {
+            storageDir.mkdirs();
+        }
         socket = new DatagramSocket(port);
         running = true;
-
-        workerThread = new Thread(this, "UdpServerWorker-Port-" + getLocalPort());
+        workerThread = new Thread(this, "UdpServerWorker-Port-" + port);
         workerThread.setDaemon(true);
         workerThread.start();
-
-        safeLog("[INFO] UDP Server da khoi dong thanh cong tren cong " + getLocalPort());
+        log("[INFO] Server UDP Worker da khoi dong tren port " + getLocalPort());
     }
 
-    /**
-     * Dừng socket UDP an toàn, giải phóng cổng và chấm dứt luồng worker.
-     */
     public synchronized void stop() {
-        if (!running && socket == null) {
-            return;
-        }
-
         running = false;
-
         if (socket != null && !socket.isClosed()) {
             socket.close();
         }
-
-        if (workerThread != null && workerThread.isAlive()) {
+        if (workerThread != null) {
             workerThread.interrupt();
         }
-
         requestPool.shutdown();
         try {
-            if (!requestPool.awaitTermination(500, TimeUnit.MILLISECONDS)) {
+            if (!requestPool.awaitTermination(1, TimeUnit.SECONDS)) {
                 requestPool.shutdownNow();
             }
         } catch (InterruptedException e) {
             requestPool.shutdownNow();
             Thread.currentThread().interrupt();
         }
-
-        safeLog("[INFO] UDP Server da dung lang nghe.");
+        log("[INFO] Server UDP Worker da dung.");
     }
 
-    /**
-     * Alias thuận tiện tương thích với tên stopServer().
-     */
-    public void stopServer() {
-        stop();
-    }
-
-    /**
-     * Kiểm tra trạng thái máy chủ đang chạy và socket còn mở.
-     */
     public boolean isRunning() {
         return running && socket != null && !socket.isClosed();
     }
 
-    /**
-     * Lấy cổng cấu hình ban đầu.
-     */
-    public int getPort() {
-        return port;
-    }
-
-    /**
-     * Lấy cổng thực tế socket đang liên kết (hữu ích khi chỉ định port 0).
-     */
     public int getLocalPort() {
         return socket != null ? socket.getLocalPort() : port;
     }
 
-    public void setLogListener(Consumer<String> logListener) {
-        this.logListener = logListener;
+    public String getCipherKey() {
+        return cipherKey;
     }
 
-    public void setPacketHandler(PacketHandler packetHandler) {
-        this.packetHandler = packetHandler;
+    public void setCipherKey(String cipherKey) {
+        this.cipherKey = VigenereCipher.normalizeKey(cipherKey);
     }
 
-    @Override
-    public void close() {
-        stop();
-    }
-
-    /**
-     * Vòng lặp chính liên tục đón nhận gói tin UDP từ Client (chạy trên Worker Thread).
-     */
     @Override
     public void run() {
-        byte[] buffer = new byte[BUFFER_SIZE];
+        byte[] buffer = new byte[UdpProtocol.BUFFER_SIZE];
 
         while (running && socket != null && !socket.isClosed()) {
             try {
@@ -193,114 +123,146 @@ public class UdpServerWorker implements Runnable, AutoCloseable {
                 int length = packet.getLength();
                 byte[] dataCopy = new byte[length];
                 System.arraycopy(packet.getData(), packet.getOffset(), dataCopy, 0, length);
-
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
 
-                // Chuyển giao xử lý gói tin sang ThreadPool để không chặn vòng lặp đón nhận gói tiếp theo
-                requestPool.submit(() -> processIncomingPacket(dataCopy, length, clientAddress, clientPort));
+                requestPool.submit(() -> handlePacket(dataCopy, clientAddress, clientPort));
 
             } catch (SocketException e) {
-                // Socket bị đóng do gọi stop() -> Kết thúc vòng lặp bình thường, không coi là lỗi
                 if (!running) {
                     break;
                 }
-                safeLog("[WARN] Socket gap loi: " + e.getMessage());
+                log("[WARN] Socket dong hoac gap loi: " + e.getMessage());
             } catch (IOException e) {
                 if (running) {
-                    safeLog("[ERROR] Ngoai le I/O khi nhan goi UDP: " + e.getMessage());
+                    log("[ERROR] Loi khi nhan goi UDP: " + e.getMessage());
                 }
             }
         }
     }
 
-    /**
-     * Nhận diện và xử lý gói tin UDP đến.
-     */
-    private void processIncomingPacket(byte[] data, int length, InetAddress clientAddress, int clientPort) {
-        String message = new String(data, 0, length, StandardCharsets.UTF_8);
+    public void handlePacket(byte[] data, InetAddress clientAddress, int clientPort) {
+        String rawMessage = new String(data, StandardCharsets.UTF_8);
         String clientIp = clientAddress.getHostAddress();
 
-        // 1. Nhận diện gói PING (Healthcheck) và phản hồi PONG tức thời
-        if (isPingMessage(message)) {
-            safeLog("[RECV][PING] tu " + clientIp + ":" + clientPort);
-            sendPong(clientAddress, clientPort);
-            return;
-        }
-
-        // 2. Chuyển giao gói tin khác cho handler (nếu đã đăng ký)
-        if (packetHandler != null) {
-            try {
-                packetHandler.handlePacket(data, length, clientAddress, clientPort);
-            } catch (Exception ex) {
-                safeLog("[ERROR] Loi khi xu ly goi tin tu " + clientIp + ":" + clientPort + " - " + ex.getMessage());
-            }
-        } else {
-            safeLog("[RECV] " + length + " bytes tu " + clientIp + ":" + clientPort + ": " + truncateLog(message, 50));
-        }
-    }
-
-    /**
-     * Kiểm tra nội dung có phải là gói PING hay không (không phân biệt chữ hoa, chữ thường).
-     */
-    public static boolean isPingMessage(String message) {
-        return message != null && PING.equalsIgnoreCase(message.trim());
-    }
-
-    /**
-     * Gửi gói tin PONG phản hồi lại Client tức thì.
-     */
-    public void sendPong(InetAddress clientAddress, int clientPort) {
         try {
-            byte[] pongBytes = PONG.getBytes(StandardCharsets.UTF_8);
-            DatagramPacket pongPacket = new DatagramPacket(pongBytes, pongBytes.length, clientAddress, clientPort);
-            sendPacket(pongPacket);
-            safeLog("[SENT][PONG] toi " + clientAddress.getHostAddress() + ":" + clientPort);
-        } catch (IOException e) {
-            safeLog("[ERROR] Khong the gui phan hoi PONG toi " + clientAddress.getHostAddress() + ":" + clientPort + " - " + e.getMessage());
+            if (UdpProtocol.isPing(rawMessage)) {
+                log("[PING] Nhan ping tu " + clientIp + ":" + clientPort + " -> Phan hoi PONG");
+                sendResponse(UdpProtocol.PONG, clientAddress, clientPort);
+                return;
+            }
+
+            if (rawMessage.startsWith(UdpProtocol.PREFIX_DATA + "|")) {
+                processDataPacket(rawMessage, clientIp, clientAddress, clientPort);
+                return;
+            }
+
+            log("[WARN] Nhan goi tin khong hop le tu " + clientIp + ":" + clientPort);
+            sendResponse(UdpProtocol.createErrorMessage("Dinh dang goi tin khong hop le"), clientAddress, clientPort);
+
+        } catch (Exception e) {
+            log("[ERROR] Ngoai le khi xu ly goi tin tu " + clientIp + ": " + e.getMessage());
+            sendResponse(UdpProtocol.createErrorMessage(e.getMessage()), clientAddress, clientPort);
         }
     }
 
-    /**
-     * Gửi một gói tin UDP bất kỳ từ Server.
-     */
-    public void sendPacket(DatagramPacket packet) throws IOException {
-        DatagramSocket currentSocket = this.socket;
-        if (currentSocket != null && !currentSocket.isClosed()) {
-            currentSocket.send(packet);
-        } else {
-            throw new SocketException("Socket UDP da bi dong hoac chua khoi tao");
-        }
-    }
-
-    /**
-     * Gửi phản hồi dạng chuỗi văn bản UTF-8 tới địa chỉ và cổng chỉ định.
-     */
-    public void sendTextResponse(InetAddress clientAddress, int clientPort, String responseText) throws IOException {
-        byte[] bytes = responseText.getBytes(StandardCharsets.UTF_8);
-        DatagramPacket packet = new DatagramPacket(bytes, bytes.length, clientAddress, clientPort);
-        sendPacket(packet);
-    }
-
-    /**
-     * Đẩy log an toàn qua SwingUtilities.invokeLater nếu đang chạy trong môi trường có giao diện đồ họa.
-     */
-    private void safeLog(String message) {
-        Consumer<String> listener = this.logListener;
-        if (listener == null) {
+    private void processDataPacket(String rawMessage, String clientIp, InetAddress clientAddress, int clientPort) {
+        UdpProtocol.DataPayload payload;
+        try {
+            payload = UdpProtocol.parseDataPacket(rawMessage);
+        } catch (IllegalArgumentException e) {
+            log("[ERROR] Loi parse DATA packet tu " + clientIp + ": " + e.getMessage());
+            sendResponse(UdpProtocol.createErrorMessage(e.getMessage()), clientAddress, clientPort);
             return;
         }
 
-        if (SwingUtilities.isEventDispatchThread()) {
-            listener.accept(message);
-        } else {
-            SwingUtilities.invokeLater(() -> listener.accept(message));
+        FileMode mode = payload.getMode();
+        String fileName = payload.getFileName();
+        String originalContent = payload.getContent();
+
+        try {
+            String currentKey = this.cipherKey;
+            String encryptedContent = VigenereCipher.encrypt(originalContent, currentKey);
+
+            File targetFile = resolveSafeStorageFile(fileName);
+            String readEncrypted;
+            // EX-06: Đồng bộ hóa thao tác ghi/đọc trên cùng một tên file khi nhiều Client gửi đồng thời
+            synchronized (getFileLock(fileName)) {
+                FileHelper.writeFile(targetFile, encryptedContent, mode);
+                // BR-01: Đọc ngược lại bản mã từ file trên đĩa trước khi giải mã
+                readEncrypted = FileHelper.readFile(targetFile, mode);
+            }
+
+            String decryptedContent = VigenereCipher.decrypt(readEncrypted, currentKey);
+            List<Integer> helloPositionsList = KeywordFinder.findHelloIndices(decryptedContent);
+            String positionsDisplay = helloPositionsList.isEmpty()
+                    ? UdpProtocol.MSG_NOT_FOUND
+                    : "[" + KeywordFinder.formatPositions(helloPositionsList) + "]";
+
+            HistoryRecord record = new HistoryRecord(
+                    clientIp,
+                    fileName,
+                    mode.name(),
+                    originalContent,
+                    encryptedContent,
+                    positionsDisplay
+            );
+
+            boolean dbSaved = dbHelper.saveHistory(record);
+            if (dbSaved) {
+                log("[DB] Da luu ban ghi ID=" + record.getId() + " (" + mode.name() + " / " + fileName + ") tu " + clientIp);
+            } else {
+                log("[WARN] Loi luu CSDL (EX-05) cho client " + clientIp + " nhung van tiep tuc phan hoi ket qua UDP.");
+            }
+            if (recordListener != null) {
+                recordListener.accept(record);
+            }
+
+            String responseMessage = UdpProtocol.createResultMessage(helloPositionsList);
+            sendResponse(responseMessage, clientAddress, clientPort);
+            log("[SUCCESS] Da phan hoi toi " + clientIp + ":" + clientPort + " -> " + responseMessage);
+
+        } catch (IOException e) {
+            log("[ERROR] Loi I/O khi xu ly file " + fileName + ": " + e.getMessage());
+            sendResponse(UdpProtocol.createErrorMessage("Loi ghi/doc file tren Server: " + e.getMessage()),
+                    clientAddress, clientPort);
+        } catch (Exception e) {
+            log("[ERROR] Loi xu ly nghiep vu cho client " + clientIp + ": " + e.getMessage());
+            sendResponse(UdpProtocol.createErrorMessage("Loi may chu: " + e.getMessage()),
+                    clientAddress, clientPort);
         }
     }
 
-    private static String truncateLog(String text, int maxLength) {
-        if (text == null) return "";
-        String clean = text.replace('\n', ' ').replace('\r', ' ');
-        return clean.length() <= maxLength ? clean : clean.substring(0, maxLength) + "...";
+    private File resolveSafeStorageFile(String safeFileName) throws IOException {
+        Path baseDir = storageDir.toPath().toAbsolutePath().normalize();
+        Path resolved = baseDir.resolve(safeFileName).normalize();
+        if (!resolved.startsWith(baseDir)) {
+            throw new IOException("Duong dan file khong hop le ngoai thu muc luu tru: " + safeFileName);
+        }
+        return resolved.toFile();
+    }
+
+    private Object getFileLock(String fileName) {
+        return fileLocks.computeIfAbsent(fileName, k -> new Object());
+    }
+
+    public void sendResponse(String message, InetAddress targetAddress, int targetPort) {
+        if (socket == null || socket.isClosed()) {
+            return;
+        }
+        try {
+            DatagramPacket sendPacket = UdpProtocol.createUdpPacket(message, targetAddress, targetPort);
+            socket.send(sendPacket);
+        } catch (IOException | IllegalArgumentException e) {
+            log("[ERROR] Khong the gui phan hoi ve " + targetAddress.getHostAddress() + ":" + targetPort + " - " + e.getMessage());
+        }
+    }
+
+    private void log(String message) {
+        if (logListener != null) {
+            logListener.accept(message);
+        } else {
+            System.out.println(message);
+        }
     }
 }

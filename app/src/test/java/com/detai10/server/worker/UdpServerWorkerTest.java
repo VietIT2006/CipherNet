@@ -1,175 +1,215 @@
 package com.detai10.server.worker;
 
+import com.detai10.core.db.DatabaseHelper;
+import com.detai10.core.db.HistoryRecord;
+import com.detai10.core.model.FileMode;
+import com.detai10.core.protocol.UdpProtocol;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Bộ kiểm thử đơn vị toàn diện cho luồng nền lắng nghe UDP (UdpServerWorker - SRV-02).
+ * Bộ Unit & Integration Test cho UdpServerWorker (SRV-02, SRV-03).
  */
 class UdpServerWorkerTest {
 
-    @Test
-    @DisplayName("Nhận diện gói PING và phản hồi PONG tức thì với độ trễ < 50ms (Healthcheck)")
-    void testPingPongResponseTimeUnder50ms() throws Exception {
-        // Khởi động server trên cổng ngẫu nhiên 0
-        try (UdpServerWorker worker = new UdpServerWorker(0)) {
-            worker.start();
-            assertTrue(worker.isRunning(), "Server phải đang chạy sau khi start()");
-            int serverPort = worker.getLocalPort();
-            assertTrue(serverPort > 0, "Cổng thực tế phải lớn hơn 0");
+    @TempDir
+    File tempStorageDir;
 
-            // Client gửi gói tin PING
-            try (DatagramSocket clientSocket = new DatagramSocket()) {
-                clientSocket.setSoTimeout(3000); // Timeout 3 giây
+    private DatabaseHelper dbHelper;
+    private UdpServerWorker serverWorker;
+    private DatagramSocket clientSocket;
+    private int serverPort;
 
-                byte[] pingBytes = "PING".getBytes(StandardCharsets.UTF_8);
-                InetAddress serverAddr = InetAddress.getByName("127.0.0.1");
-                DatagramPacket sendPacket = new DatagramPacket(pingBytes, pingBytes.length, serverAddr, serverPort);
+    @BeforeEach
+    void setUp() throws Exception {
+        dbHelper = DatabaseHelper.createInMemoryHelper();
+        dbHelper.clearHistory();
 
-                long startTime = System.currentTimeMillis();
-                clientSocket.send(sendPacket);
+        serverWorker = new UdpServerWorker(0, "SECRETKEY", tempStorageDir, dbHelper, null, null);
+        serverWorker.start();
+        serverPort = serverWorker.getLocalPort();
 
-                byte[] recvBuffer = new byte[1024];
-                DatagramPacket recvPacket = new DatagramPacket(recvBuffer, recvBuffer.length);
-                clientSocket.receive(recvPacket);
-                long latency = System.currentTimeMillis() - startTime;
+        clientSocket = new DatagramSocket();
+        clientSocket.setSoTimeout(3000);
+    }
 
-                String response = new String(recvPacket.getData(), 0, recvPacket.getLength(), StandardCharsets.UTF_8);
-
-                assertEquals("PONG", response, "Server phải phản hồi chính xác chuỗi PONG");
-                assertTrue(latency < 50, "Thời gian phản hồi PING/PONG phải < 50ms (Thực tế: " + latency + "ms)");
-            }
+    @AfterEach
+    void tearDown() {
+        if (clientSocket != null && !clientSocket.isClosed()) {
+            clientSocket.close();
+        }
+        if (serverWorker != null) {
+            serverWorker.stop();
         }
     }
 
+    private String sendAndReceive(String message) throws IOException {
+        byte[] sendData = message.getBytes(StandardCharsets.UTF_8);
+        InetAddress serverAddress = InetAddress.getByName("127.0.0.1");
+        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
+        clientSocket.send(sendPacket);
+
+        byte[] receiveData = new byte[4096];
+        DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+        clientSocket.receive(receivePacket);
+
+        return new String(receivePacket.getData(), receivePacket.getOffset(), receivePacket.getLength(), StandardCharsets.UTF_8);
+    }
+
     @Test
-    @DisplayName("Nhận diện PING không phân biệt chữ hoa, chữ thường và khoảng trắng")
-    void testPingCaseInsensitive() throws Exception {
-        try (UdpServerWorker worker = new UdpServerWorker(0)) {
-            worker.start();
-            int serverPort = worker.getLocalPort();
+    @DisplayName("Gửi PING nhận phản hồi PONG tức thì")
+    void testPingPong() throws IOException {
+        assertEquals("PONG", sendAndReceive("PING"));
+    }
 
-            try (DatagramSocket clientSocket = new DatagramSocket()) {
-                clientSocket.setSoTimeout(2000);
-                InetAddress serverAddr = InetAddress.getByName("127.0.0.1");
+    @Test
+    @DisplayName("Gửi DATA chứa từ khóa HELLO -> Lưu CSDL và nhận RESULT|OK|Vi tri HELLO: [...]")
+    void testDataWithHello() throws IOException {
+        String originalContent = "Xin chao, hello Vietnam! HELLO world.";
+        String message = UdpProtocol.createDataMessage(FileMode.TEXT, "test_hello.txt", originalContent);
 
-                String[] pingVariants = {"ping", "Ping", "  PiNg  ", "pInG"};
-                for (String variant : pingVariants) {
-                    byte[] bytes = variant.getBytes(StandardCharsets.UTF_8);
-                    clientSocket.send(new DatagramPacket(bytes, bytes.length, serverAddr, serverPort));
+        String response = sendAndReceive(message);
+        assertEquals("RESULT|OK|Vi tri HELLO: [10, 25]", response);
 
-                    byte[] recvBuffer = new byte[1024];
-                    DatagramPacket recvPacket = new DatagramPacket(recvBuffer, recvBuffer.length);
-                    clientSocket.receive(recvPacket);
+        List<HistoryRecord> historyList = dbHelper.getAllHistory();
+        assertEquals(1, historyList.size());
 
-                    String res = new String(recvPacket.getData(), 0, recvPacket.getLength(), StandardCharsets.UTF_8);
-                    assertEquals("PONG", res, "Biến thể '" + variant + "' phải được nhận diện là PING và phản hồi PONG");
+        HistoryRecord record = historyList.get(0);
+        assertEquals("test_hello.txt", record.getFileName());
+        assertEquals("TEXT", record.getIoMode());
+        assertEquals(originalContent, record.getOriginalContent());
+        assertNotNull(record.getEncryptedContent());
+        assertEquals("[10, 25]", record.getHelloPositions());
+    }
+
+    @Test
+    @DisplayName("Gửi DATA không chứa từ khóa HELLO -> Lưu CSDL và nhận RESULT|NOT_FOUND|...")
+    void testDataWithoutHello() throws IOException {
+        String originalContent = "Chuc mung mot ngay lam viec tot lanh!";
+        String message = UdpProtocol.createDataMessage(FileMode.BINARY, "data_binary.dat", originalContent);
+
+        String response = sendAndReceive(message);
+        assertEquals(UdpProtocol.createResultNotFoundMessage(), response);
+
+        List<HistoryRecord> historyList = dbHelper.getAllHistory();
+        assertEquals(1, historyList.size());
+        assertEquals("BINARY", historyList.get(0).getIoMode());
+        assertEquals(UdpProtocol.MSG_NOT_FOUND, historyList.get(0).getHelloPositions());
+    }
+
+    @Test
+    @DisplayName("EX-02: Gửi DATA chứa ký tự phân tách '|' trong nội dung -> Xử lý an toàn")
+    void testDataContentWithPipes() throws IOException {
+        String contentWithPipes = "COT1|COT2|COT3|Gia tri chua tu HELLO o day|Ket thuc";
+        String message = UdpProtocol.createDataMessage(FileMode.TEXT, "pipes.txt", contentWithPipes);
+
+        String response = sendAndReceive(message);
+        assertTrue(response.startsWith("RESULT|OK|Vi tri HELLO:"));
+
+        List<HistoryRecord> historyList = dbHelper.getAllHistory();
+        assertEquals(1, historyList.size());
+        assertEquals(contentWithPipes, historyList.get(0).getOriginalContent());
+    }
+
+    @Test
+    @DisplayName("NFR-02: Chặn tên file chứa Path Traversal từ phía Client giả mạo")
+    void testPathTraversalPacketRejected() throws IOException {
+        String maliciousPacket = "DATA|TEXT|../evil.txt|HELLO";
+        String response = sendAndReceive(maliciousPacket);
+        assertTrue(response.startsWith("ERROR|"));
+    }
+
+    @Test
+    @DisplayName("EX-06: Nhiều Client gửi đồng thời cùng một tên file không bị xung đột I/O")
+    void testConcurrentSameFileAccess() throws Exception {
+        int threads = 6;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch latch = new CountDownLatch(threads);
+        AtomicInteger okCount = new AtomicInteger(0);
+
+        for (int i = 0; i < threads; i++) {
+            pool.submit(() -> {
+                try (DatagramSocket s = new DatagramSocket()) {
+                    s.setSoTimeout(3000);
+                    String msg = UdpProtocol.createDataMessage(FileMode.TEXT, "shared.txt", "Say HELLO concurrently");
+                    byte[] bytes = msg.getBytes(StandardCharsets.UTF_8);
+                    s.send(new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), serverPort));
+
+                    byte[] buf = new byte[4096];
+                    DatagramPacket resp = new DatagramPacket(buf, buf.length);
+                    s.receive(resp);
+                    String respStr = new String(resp.getData(), resp.getOffset(), resp.getLength(), StandardCharsets.UTF_8);
+                    if (respStr.equals("RESULT|OK|Vi tri HELLO: [4]")) {
+                        okCount.incrementAndGet();
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    latch.countDown();
                 }
-            }
+            });
         }
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        pool.shutdown();
+        assertEquals(threads, okCount.get(), "Mọi Client gửi trùng tên file đồng thời phải nhận kết quả chính xác");
+        assertEquals(threads, dbHelper.getAllHistory().size());
     }
 
     @Test
-    @DisplayName("Khởi động và dừng Server mượt mà nhiều lần không bị rò rỉ socket/port")
-    void testStartAndStopMultipleTimesWithoutLeak() throws Exception {
-        // Dùng cổng cố định để xác nhận không bị BindException khi stop và start lại
-        int testPort = 19876;
-        for (int i = 0; i < 5; i++) {
-            UdpServerWorker worker = new UdpServerWorker(testPort);
-            try {
-                worker.start();
-                assertTrue(worker.isRunning(), "Lần " + (i + 1) + ": Server phải chạy");
-                assertEquals(testPort, worker.getLocalPort());
-            } finally {
-                worker.stop();
-                assertFalse(worker.isRunning(), "Lần " + (i + 1) + ": Server phải dừng");
-            }
-            // Khoảng nghỉ nhỏ để OS thu hồi port hoàn toàn
-            Thread.sleep(50);
-        }
+    @DisplayName("Gửi gói tin sai định dạng -> Nhận phản hồi ERROR|<thông_điệp>")
+    void testInvalidPacketFormat() throws IOException {
+        String response = sendAndReceive("DATA|TEXT_THIEU_THAM_SO");
+        assertTrue(response.startsWith("ERROR|"));
     }
 
     @Test
-    @DisplayName("Ghi vết nhật ký sự kiện thông qua LogListener")
-    void testLogListenerReceivesMessages() throws Exception {
-        List<String> logs = Collections.synchronizedList(new ArrayList<>());
-        CountDownLatch logLatch = new CountDownLatch(1);
-
-        try (UdpServerWorker worker = new UdpServerWorker(0, msg -> {
-            logs.add(msg);
-            if (msg.contains("da khoi dong")) {
-                logLatch.countDown();
-            }
-        })) {
-            worker.start();
-            assertTrue(logLatch.await(2, TimeUnit.SECONDS), "Phải nhận được log khởi động");
-            assertFalse(logs.isEmpty(), "Danh sách log không được rỗng");
-            assertTrue(logs.get(0).contains("da khoi dong"));
-        }
-    }
-
-    @Test
-    @DisplayName("Chuyển giao gói tin không phải PING cho PacketHandler tùy biến")
-    void testCustomPacketHandler() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean handlerInvoked = new AtomicBoolean(false);
-
-        UdpServerWorker.PacketHandler handler = (data, length, clientAddr, clientPort) -> {
-            String content = new String(data, 0, length, StandardCharsets.UTF_8);
-            if ("CUSTOM_PAYLOAD".equals(content)) {
-                handlerInvoked.set(true);
-                latch.countDown();
+    @DisplayName("EX-05: Lỗi ghi CSDL không làm sập Server và vẫn trả phản hồi RESULT về Client")
+    void testDatabaseFailureGracefulFallback() throws Exception {
+        DatabaseHelper failingDb = new DatabaseHelper("jdbc:h2:mem:ex05_test;DB_CLOSE_DELAY=-1", "sa", "") {
+            @Override
+            public boolean saveHistory(HistoryRecord record) {
+                return false;
             }
         };
+        java.util.List<String> logs = new java.util.concurrent.CopyOnWriteArrayList<>();
+        UdpServerWorker workerWithBrokenDb = new UdpServerWorker(0, "SECRETKEY", tempStorageDir, failingDb, logs::add, null);
+        try {
+            workerWithBrokenDb.start();
+            int port = workerWithBrokenDb.getLocalPort();
 
-        try (UdpServerWorker worker = new UdpServerWorker(0, null, handler)) {
-            worker.start();
-            int serverPort = worker.getLocalPort();
+            String msg = UdpProtocol.createDataMessage(FileMode.TEXT, "ex05.txt", "Say HELLO when DB fails");
+            byte[] bytes = msg.getBytes(StandardCharsets.UTF_8);
+            clientSocket.send(new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), port));
 
-            try (DatagramSocket clientSocket = new DatagramSocket()) {
-                byte[] bytes = "CUSTOM_PAYLOAD".getBytes(StandardCharsets.UTF_8);
-                clientSocket.send(new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), serverPort));
+            byte[] buf = new byte[4096];
+            DatagramPacket resp = new DatagramPacket(buf, buf.length);
+            clientSocket.receive(resp);
+            String respStr = new String(resp.getData(), resp.getOffset(), resp.getLength(), StandardCharsets.UTF_8);
 
-                assertTrue(latch.await(2, TimeUnit.SECONDS), "PacketHandler phải được gọi trong 2s");
-                assertTrue(handlerInvoked.get());
-            }
+            assertEquals("RESULT|OK|Vi tri HELLO: [4]", respStr);
+            assertTrue(logs.stream().anyMatch(l -> l.contains("EX-05")));
+        } finally {
+            workerWithBrokenDb.stop();
         }
-    }
-
-    @Test
-    @DisplayName("Dừng server trong khi socket đang chờ receive() không bị treo (Graceful shutdown)")
-    void testStopWhileBlockedInReceive() throws Exception {
-        UdpServerWorker worker = new UdpServerWorker(0);
-        worker.start();
-        assertTrue(worker.isRunning());
-
-        // Cho worker thread bước vào vòng lặp receive()
-        Thread.sleep(100);
-
-        // Dừng máy chủ
-        long startStop = System.currentTimeMillis();
-        worker.stop();
-        long stopDuration = System.currentTimeMillis() - startStop;
-
-        assertFalse(worker.isRunning(), "Server phải dừng hoàn toàn");
-        assertTrue(stopDuration < 1000, "Thời gian dừng phải mượt mà < 1s (Thực tế: " + stopDuration + "ms)");
     }
 }

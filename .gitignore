@@ -51,6 +51,7 @@ temp/
 # Storage
 server_storage/*
 !server_storage/.gitkeep
+app/server_storage/
 
 # Executables & JARs
 *.jar

@@ -5,10 +5,10 @@ Tài liệu này hướng dẫn chi tiết cách thiết lập môi trường, b
 ---
 
 ## 1. Yêu cầu tiên quyết (Prerequisites)
-- **JDK 21 LTS (hoặc JDK 17+):** Kiểm tra bằng lệnh:
+- **JDK 17 LTS trở lên:** Kiểm tra bằng lệnh:
   ```bash
   java -version
-  # Yêu cầu: openjdk version "21" (hoặc "17" trở lên)
+  # Yêu cầu: version "17" trở lên
   ```
 - **Hệ điều hành:** Windows 10/11 hoặc Linux / macOS.
 - **Cơ sở dữ liệu:** MySQL (phiên bản 8.0+) hoặc SQL Server. Đảm bảo dịch vụ DB đang chạy.
