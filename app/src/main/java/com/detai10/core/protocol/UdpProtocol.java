@@ -3,12 +3,15 @@ package com.detai10.core.protocol;
 import com.detai10.core.model.FileMode;
 import com.detai10.core.search.KeywordFinder;
 
+import java.net.DatagramPacket;
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Đặc tả và hiện thực các quy chuẩn đóng gói, phân tích gói tin giao tiếp UDP giữa Client và Server.
+ * Đặc tả và hiện thực các quy chuẩn đóng gói, phân tích gói tin và thao tác {@link DatagramPacket}
+ * trong giao tiếp UDP giữa Client và Server (Task CORE-01).
  * <p>
  * Định dạng các loại gói tin (khớp SRS Mục 3.1):
  * - Handshake / Healthcheck: {@code PING} &lt;-&gt; {@code PONG}
@@ -17,7 +20,8 @@ import java.util.Objects;
  * - Phản hồi không có từ khóa: {@code RESULT|NOT_FOUND|Khong tim thay tu khoa HELLO}
  * - Phản hồi lỗi: {@code ERROR|<error_message>}
  * <p>
- * Tuân thủ Quy tắc 3 (split("\\|", 4)), EX-03 (<= 30.000 bytes UTF-8) và NFR-02 (chặn ../ trong tên file).
+ * Tuân thủ Quy tắc 1 (Headless First - không Swing/AWT), Quy tắc 3 ({@code split("\\|", 4)}),
+ * EX-03 (giới hạn payload &lt;= 30.000 bytes UTF-8 / tối đa 65.507 bytes IPv4) và NFR-02 (chặn {@code ../}).
  */
 public final class UdpProtocol {
 
@@ -81,14 +85,64 @@ public final class UdpProtocol {
      * Kiểm tra kích thước chuỗi UTF-8 không vượt quá ngưỡng an toàn 30.000 bytes (SRS EX-03).
      */
     public static void validatePayloadSize(String rawMessage) {
+        validateMessageBytes(rawMessage, MAX_PAYLOAD_BYTES);
+    }
+
+    /**
+     * Kiểm tra chuỗi thông điệp UTF-8 không vượt quá giới hạn tối đa cho phép.
+     */
+    public static void validateMessageBytes(String rawMessage, int maxBytes) {
         if (rawMessage == null) {
             throw new IllegalArgumentException("Noi dung goi tin khong duoc null");
         }
         int byteLength = rawMessage.getBytes(StandardCharsets.UTF_8).length;
-        if (byteLength > MAX_PAYLOAD_BYTES) {
+        if (byteLength > maxBytes) {
             throw new IllegalArgumentException(
-                    "Dung luong goi tin (" + byteLength + " bytes) vuot qua gioi han an toan " + MAX_PAYLOAD_BYTES + " bytes");
+                    "Dung luong goi tin (" + byteLength + " bytes) vuot qua gioi han " + maxBytes + " bytes");
         }
+    }
+
+    /**
+     * Tạo {@link DatagramPacket} chuẩn UTF-8 để gửi qua UDP Socket.
+     * Kiểm tra địa chỉ đích, cổng (1..65535) và giới hạn tối đa payload UDP (65.507 bytes).
+     */
+    public static DatagramPacket createUdpPacket(String message, InetAddress address, int port) {
+        if (address == null) {
+            throw new IllegalArgumentException("Dia chi dich InetAddress khong duoc null");
+        }
+        if (port < 1 || port > 65535) {
+            throw new IllegalArgumentException("Cong UDP khong hop le (1..65535): " + port);
+        }
+        validateMessageBytes(message, BUFFER_SIZE);
+        byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
+        return new DatagramPacket(bytes, bytes.length, address, port);
+    }
+
+    /**
+     * Cấp phát {@link DatagramPacket} bộ đệm chuẩn kích thước {@link #BUFFER_SIZE} (65.507 bytes) để nhận dữ liệu.
+     */
+    public static DatagramPacket createReceiveBufferPacket() {
+        byte[] buffer = new byte[BUFFER_SIZE];
+        return new DatagramPacket(buffer, buffer.length);
+    }
+
+    /**
+     * Đọc và trích xuất chuỗi UTF-8 chính xác theo {@code packet.getOffset()} và {@code packet.getLength()},
+     * loại bỏ hoàn toàn byte rác ở phần dư của bộ đệm nhận.
+     */
+    public static String extractPacketMessage(DatagramPacket packet) {
+        if (packet == null || packet.getData() == null) {
+            throw new IllegalArgumentException("DatagramPacket hoac bo dem du lieu khong duoc null");
+        }
+        int offset = packet.getOffset();
+        int length = packet.getLength();
+        if (offset < 0 || length < 0 || offset + length > packet.getData().length) {
+            throw new IllegalArgumentException("Do dai hoac offset cua DatagramPacket khong hop le");
+        }
+        if (length > BUFFER_SIZE) {
+            throw new IllegalArgumentException("Kich thuoc goi tin nhan duoc vuot qua 65.507 bytes");
+        }
+        return new String(packet.getData(), offset, length, StandardCharsets.UTF_8);
     }
 
     public static String createDataMessage(FileMode mode, String fileName, String content) {

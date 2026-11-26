@@ -4,6 +4,9 @@ import com.detai10.core.model.FileMode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.net.DatagramPacket;
+import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
@@ -70,11 +73,44 @@ class UdpProtocolTest {
     }
 
     @Test
-    @DisplayName("EX-03: Từ chối gói tin vượt quá giới hạn an toàn 30.000 bytes UTF-8")
-    void testPayloadSizeLimit() {
-        String oversized = "A".repeat(30001);
+    @DisplayName("EX-03: Từ chối gói DATA > 30.000 bytes và DatagramPacket > 65.507 bytes UTF-8")
+    void testPayloadSizeLimit() throws Exception {
+        String oversizedData = "A".repeat(30001);
         assertThrows(IllegalArgumentException.class,
-                () -> UdpProtocol.createDataMessage(FileMode.TEXT, "big.txt", oversized));
+                () -> UdpProtocol.createDataMessage(FileMode.TEXT, "big.txt", oversizedData));
+
+        InetAddress localhost = InetAddress.getByName("127.0.0.1");
+        String oversizedUdp = "X".repeat(UdpProtocol.BUFFER_SIZE + 1);
+        assertThrows(IllegalArgumentException.class,
+                () -> UdpProtocol.createUdpPacket(oversizedUdp, localhost, 9876));
+    }
+
+    @Test
+    @DisplayName("CORE-01: Helper tạo và trích xuất DatagramPacket UTF-8 đúng offset và length")
+    void testDatagramPacketHelpersWithOffsetAndLength() throws Exception {
+        InetAddress localhost = InetAddress.getByName("127.0.0.1");
+        String text = "Xin chào Việt Nam! HELLO|UDP";
+
+        DatagramPacket sendPacket = UdpProtocol.createUdpPacket(text, localhost, 9876);
+        assertEquals(text, UdpProtocol.extractPacketMessage(sendPacket));
+        assertEquals(9876, sendPacket.getPort());
+
+        // Giả lập buffer lớn có offset != 0 và nhiều byte rác phía sau
+        byte[] payloadBytes = text.getBytes(StandardCharsets.UTF_8);
+        byte[] paddedBuffer = new byte[1024];
+        int offset = 16;
+        System.arraycopy(payloadBytes, 0, paddedBuffer, offset, payloadBytes.length);
+        paddedBuffer[offset + payloadBytes.length] = 'Z'; // byte rác ngoài length
+
+        DatagramPacket slicedPacket = new DatagramPacket(paddedBuffer, offset, payloadBytes.length);
+        assertEquals(text, UdpProtocol.extractPacketMessage(slicedPacket));
+
+        DatagramPacket receiveBuffer = UdpProtocol.createReceiveBufferPacket();
+        assertEquals(UdpProtocol.BUFFER_SIZE, receiveBuffer.getData().length);
+
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.extractPacketMessage(null));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.createUdpPacket("PING", null, 9876));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.createUdpPacket("PING", localhost, 0));
     }
 
     @Test

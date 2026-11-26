@@ -250,10 +250,9 @@ public class UdpServerWorker implements Runnable {
             return;
         }
         try {
-            byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
-            DatagramPacket sendPacket = new DatagramPacket(bytes, bytes.length, targetAddress, targetPort);
+            DatagramPacket sendPacket = UdpProtocol.createUdpPacket(message, targetAddress, targetPort);
             socket.send(sendPacket);
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             log("[ERROR] Khong the gui phan hoi ve " + targetAddress.getHostAddress() + ":" + targetPort + " - " + e.getMessage());
         }
     }

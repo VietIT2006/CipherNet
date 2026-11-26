@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Tầng giao tiếp mạng UDP phía Client (Headless, không phụ thuộc Swing/AWT).
@@ -51,24 +50,17 @@ public class UdpClientService {
     }
 
     protected String sendAndReceive(String serverIp, int port, String message, int timeoutMs) throws IOException {
-        byte[] sendBytes = message.getBytes(StandardCharsets.UTF_8);
         InetAddress address = InetAddress.getByName(serverIp);
 
         try (DatagramSocket socket = new DatagramSocket()) {
             socket.setSoTimeout(timeoutMs);
-            DatagramPacket sendPacket = new DatagramPacket(sendBytes, sendBytes.length, address, port);
+            DatagramPacket sendPacket = UdpProtocol.createUdpPacket(message, address, port);
             socket.send(sendPacket);
 
-            byte[] receiveBuffer = new byte[UdpProtocol.BUFFER_SIZE];
-            DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
+            DatagramPacket receivePacket = UdpProtocol.createReceiveBufferPacket();
             socket.receive(receivePacket);
 
-            return new String(
-                    receivePacket.getData(),
-                    receivePacket.getOffset(),
-                    receivePacket.getLength(),
-                    StandardCharsets.UTF_8
-            );
+            return UdpProtocol.extractPacketMessage(receivePacket);
         }
     }
 
