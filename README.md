@@ -1,178 +1,181 @@
-# ĐỀ TÀI 10: CHƯƠNG TRÌNH QUẢN LÝ SINH VIÊN TRÊN MÔ HÌNH CLIENT – SERVER (JAVA UDP)
+# ĐỀ TÀI 10: HỆ THỐNG CLIENT–SERVER TRUYỀN NHẬN DỮ LIỆU MÃ HÓA QUA GIAO THỨC UDP (JAVA)
 
-> **Dự án:** Ứng dụng Client – Server truyền nhận dữ liệu qua giao thức UDP, tích hợp mã hóa Vigenère, lưu trữ File 2 chế độ (Văn bản & Nhị phân) và quản lý cơ sở dữ liệu JDBC.  
-> **Phương pháp phát triển:** Áp dụng Workflow chuẩn Clucky (Spec-driven & AI-ready development).
-
----
-
-## 📌 1. Tổng quan dự án
-
-Dự án hiện thực mô hình Client – Server phân tán sử dụng Java Socket với giao thức UDP. Hệ thống cho phép Client kết nối, kiểm tra tính sẵn sàng (Healthcheck PING/PONG), gửi dữ liệu văn bản theo chế độ tùy chọn; Server tiếp nhận gói tin, thực hiện mã hóa Vigenère, ghi và đọc file kiểm chứng, giải mã và phân tích tìm kiếm từ khóa `"HELLO"`, lưu lịch sử vào cơ sở dữ liệu qua JDBC rồi phản hồi kết quả về cho Client.
-
-### 🌟 Điểm nổi bật
-- **Mô hình kiến trúc Spec-driven & AI-ready:** Toàn bộ đặc tả, sơ đồ kiến trúc, tài liệu ngữ cảnh được quy hoạch chi tiết tại thư mục `architecture/` trước khi lập trình.
-- **Tách biệt hoàn toàn Core Logic & GUI:** Các module mã hóa, I/O, phân tích gói tin và tìm kiếm được viết độc lập với Java Swing, cho phép chạy Unit Test tự động trên môi trường Linux Headless CI.
-- **Tối ưu hóa UDP & Đa luồng:** Server sử dụng Worker Thread riêng biệt để lắng nghe và điều phối gói tin, đảm bảo giao diện không bị đóng băng (non-blocking GUI).
+> **Dự án:** Vigen (CipherNet) — Ứng dụng Client–Server truyền nhận dữ liệu qua giao thức UDP, tích hợp mã hóa Vigenère, lưu trữ tệp tin theo hai chế độ (Văn bản và Nhị phân) và quản trị lịch sử qua JDBC.  
+> **Phương pháp phát triển:** Quy trình Spec-driven & AI-ready Development (chuẩn Clucky).
 
 ---
 
-## 🛠️ 2. Công nghệ sử dụng (Tech Stack)
+## 1. Tổng quan dự án
+
+Hệ thống được xây dựng theo mô hình Client–Server phân tán trên nền tảng Java Socket với giao thức phi kết nối UDP (`DatagramSocket`, `DatagramPacket`). Client thực hiện thăm dò trạng thái sẵn sàng của Server bằng cơ chế `PING`/`PONG`, sau đó gửi văn bản kèm tên tệp tin và chế độ lưu trữ tùy chọn. Server tiếp nhận gói tin trên luồng nền, mã hóa nội dung bằng thuật toán Vigenère, ghi và đọc lại tệp tin để kiểm chứng tính toàn vẹn dữ liệu, giải mã, tìm tất cả vị trí xuất hiện của từ khóa `"HELLO"`, ghi nhận lịch sử giao dịch vào cơ sở dữ liệu thông qua JDBC và gửi kết quả phản hồi về Client.
+
+### Đặc điểm kiến trúc nổi bật
+- **Phát triển hướng đặc tả (Spec-driven & AI-ready):** Toàn bộ tài liệu yêu cầu, giao thức, sơ đồ kiến trúc và danh mục tác vụ được quy hoạch tại thư mục `architecture/` (trạng thái chỉ đọc — bất biến) trước khi triển khai mã nguồn.
+- **Tách biệt tầng xử lý nghiệp vụ và giao diện (Headless First):** Các gói `com.detai10.core.*` và `com.detai10.client.net.*` hoàn toàn độc lập với thư viện giao diện (`java.awt.*`, `javax.swing.*`), bảo đảm kiểm thử tự động JUnit 5 thực thi ổn định trên môi trường CI Linux Headless.
+- **Xử lý bất đồng bộ và an toàn đa luồng:** Server sử dụng luồng nền `UdpServerWorker` kết hợp nhóm luồng xử lý song song và đồng bộ hóa thao tác tệp theo tên; Client sử dụng `SwingWorker` để không gây treo giao diện người dùng (EDT).
+
+---
+
+## 2. Công nghệ sử dụng (Tech Stack)
 
 | Thành phần | Công nghệ / Thư viện | Chi tiết sử dụng |
 | :--- | :--- | :--- |
-| **Ngôn ngữ** | Java 17 LTS (tương thích 17+) | Phiên bản chuẩn cho toàn dự án (`--release 17`) |
+| **Ngôn ngữ** | Java 17 LTS (tương thích JDK 17+) | Chuẩn biên dịch thống nhất toàn dự án (`--release 17`) |
+| **Công cụ build** | Gradle Wrapper (`9.7.1`) | Quản lý phụ thuộc, biên dịch, kiểm thử và đóng gói Fat JAR |
 | **Giao diện** | Java Swing | `ServerMainFrame`, `ConnectFrame`, `ClientMainFrame` |
-| **Mạng** | Java UDP Socket | `DatagramSocket`, `DatagramPacket` |
-| **I/O File** | Java I/O (2 chế độ) | `BufferedWriter`/`BufferedReader` (Text) & `DataOutputStream`/`DataInputStream` bọc Buffer (Binary) |
-| **Bảo mật** | Thuật toán Vigenère | Dịch chuyển mã hóa/giải mã ký tự `A-Z`/`a-z`, bảo toàn ký tự số, ký hiệu |
-| **Cơ sở dữ liệu** | JDBC (MySQL 8 / H2) | Lưu vết lịch sử giao dịch qua `PreparedStatement` (H2 In-Memory khi test CI) |
-| **Kiểm thử** | JUnit 5 | Unit Test, E2E Socket Test & Stress Test tự động |
-| **CI/CD** | GitHub Actions | Tự động hóa Build, Test, CodeQL và Release Fat JAR (`udp-server.jar`, `udp-client.jar`) |
+| **Mạng** | Java UDP Socket | `DatagramSocket`, `DatagramPacket` (bộ đệm 65.507 bytes, chuẩn UTF-8) |
+| **I/O File** | Java I/O (2 chế độ) | `BufferedWriter`/`BufferedReader` (`TEXT` UTF-8) và `DataOutputStream`/`DataInputStream` bọc đệm (`BINARY` `writeUTF`/`readUTF`) |
+| **Mã hóa** | Thuật toán Vigenère | Dịch chuyển chữ cái `[A-Za-z]` theo modulo 26; bảo toàn chữ số, khoảng trắng và ký hiệu |
+| **Cơ sở dữ liệu** | JDBC (MySQL 8.0+ / H2 Fallback) | Lưu lịch sử xử lý vào bảng `lich_su_xu_ly` qua `PreparedStatement` |
+| **Kiểm thử** | JUnit 5 & JaCoCo | Kiểm thử đơn vị, kiểm thử tải đồng thời và kiểm thử E2E bằng `DatagramSocket` thực |
+| **CI/CD** | GitHub Actions | Tự động kiểm thử Headless, phân tích bảo mật CodeQL và phát hành Fat JAR (`udp-server.jar`, `udp-client.jar`) |
 
 ---
 
-## 📡 3. Đặc tả Giao thức UDP (UDP Protocol)
+## 3. Đặc tả giao thức UDP (UDP Protocol)
 
-Giao thức trao đổi dữ liệu tùy biến giữa Client và Server:
+Giao thức tầng ứng dụng trao đổi gói tin giữa Client và Server sử dụng bảng mã `StandardCharsets.UTF_8`:
 
-### 3.1. Gói tin PING / PONG (Kiểm tra kết nối)
-- **Client -> Server:** `PING`
-- **Server -> Client:** `PONG`
-- **Cơ chế:** Client thiết lập timeout 3 giây. Nếu nhận được `PONG`, kết nối thành công và chuyển sang màn hình làm việc chính; ngược lại thông báo lỗi kết nối.
+### 3.1. Gói tin kiểm tra kết nối (`PING` / `PONG`)
+- **Client gửi Server:** `PING`
+- **Server phản hồi Client:** `PONG`
+- **Cơ chế:** Client thiết lập `socket.setSoTimeout(3000)` (3 giây). Nếu nhận được `PONG` trong thời hạn, giao diện chuyển từ `ConnectFrame` sang `ClientMainFrame`; nếu hết thời gian chờ (`SocketTimeoutException`), hiển thị thông báo lỗi và cho phép thử lại.
 
-### 3.2. Gói tin Dữ liệu (DATA)
+### 3.2. Gói tin dữ liệu (`DATA`) và phản hồi (`RESULT` / `ERROR`)
 - **Cú pháp gửi:**  
   `DATA|<mode>|<fileName>|<content>`
-  - `<mode>`: Chế độ lưu file (`TEXT` hoặc `BINARY`).
-  - `<fileName>`: Tên file lưu trên Server.
-  - `<content>`: Nội dung dữ liệu văn bản do Client nhập.
-- **Cú pháp phản hồi:**  
-  `RESULT|<status>|<message>` (ví dụ: `RESULT|OK|Vi tri HELLO: [0, 15]` hoặc `RESULT|NOT_FOUND|Khong tim thay tu khoa HELLO`)
-  - Trả về danh sách các vị trí (index) tìm thấy từ khóa `"HELLO"` hoặc thông báo không tìm thấy.
+  - `<mode>`: Chế độ lưu trữ tệp (`TEXT` hoặc `BINARY`).
+  - `<fileName>`: Tên tệp hợp lệ lưu trên Server (bị từ chối nếu chứa `..`, `/`, `\` hoặc ký tự cấm).
+  - `<content>`: Nội dung văn bản nguồn (giới hạn an toàn tối đa `30.000` bytes UTF-8 phía Client; cho phép chứa ký tự `|` nhờ bóc tách `split("\\|", 4)`).
+- **Cú pháp phản hồi:**
+  - Tìm thấy từ khóa: `RESULT|OK|Vi tri HELLO: [<indices>]`
+  - Không tìm thấy từ khóa: `RESULT|NOT_FOUND|Khong tim thay tu khoa HELLO`
+  - Lỗi xử lý hoặc sai định dạng: `ERROR|<error_message>`
 
 ---
 
-## 🔄 4. Luồng xử lý dữ liệu tại Server
+## 4. Luồng xử lý dữ liệu tại Server
 
 ```text
-[Client] Gửi gói tin DATA|<mode>|<fileName>|<content>
-       │
-       ▼ (UDP Socket)
-[Server] UdpServerWorker nhận gói tin
-       │
-       ├─► 1. Bóc tách gói tin an toàn (split("\\|", 4)) & kiểm tra tên file (NFR-02)
-       │
-       ├─► 2. Mã hóa nội dung bằng thuật toán Vigenère (Key từ Server GUI)
-       │
-       ├─► 3. Ghi dữ liệu mã hóa ra File (đồng bộ theo tên file EX-06):
-       │      • TEXT: BufferedWriter / BufferedReader (UTF-8)
-       │      • BINARY: DataOutputStream bọc BufferedOutputStream (writeUTF)
-       │
-       ├─► 4. Đọc lại bản mã từ file vừa ghi để kiểm chứng toàn vẹn I/O (BR-01)
-       │
-       ├─► 5. Giải mã nội dung bằng khóa Vigenère
-       │
-       ├─► 6. Tìm tất cả vị trí xuất hiện của từ khóa "HELLO" (KeywordFinder)
-       │
-       ├─► 7. Lưu bản ghi vào CSDL (bảng lich_su_xu_ly) & cập nhật Server GUI (invokeLater)
-       │
-       └─► 8. Đóng gói RESULT|OK|... hoặc RESULT|NOT_FOUND|... gửi về Client qua UDP
+[Client] Gui goi tin DATA|<mode>|<fileName>|<content>
+       |
+       v (UDP DatagramPacket)
+[Server] UdpServerWorker tiep nhan goi tin tren luong nen
+       |
+       +--> 1. Boc tach an toan bang UdpProtocol.parseDataPacket() (split("\\|", 4))
+       |
+       +--> 2. Ma hoa noi dung bang VigenereCipher.encrypt(content, serverKey)
+       |
+       +--> 3. Dong bo theo ten tep va ghi xuong server_storage/:
+       |         - TEXT: BufferedWriter / BufferedReader (UTF-8)
+       |         - BINARY: DataOutputStream / DataInputStream boc BufferedStream (writeUTF/readUTF)
+       |
+       +--> 4. Doc nguoc lai ban ma tu tep tren dia de kiem chung toan ven
+       |
+       +--> 5. Giai ma noi dung doc tu dia bang VigenereCipher.decrypt()
+       |
+       +--> 6. Tim tat ca vi tri xuat hien cua tu khoa "HELLO" (KeywordFinder)
+       |
+       +--> 7. Luu lich su giao dich vao CSDL bang lich_su_xu_ly (PreparedStatement)
+       |
+       +--> 8. Cap nhat giao dien Server (SwingUtilities.invokeLater) va gui RESULT ve Client
 ```
 
 ---
 
-## 📂 5. Cấu trúc thư mục dự án
+## 5. Cấu trúc thư mục dự án
 
 ```text
 CipherNet/
+├── .agents/
+│   └── rules/                          # Quy tắc vận hành và chuẩn kỹ thuật cho AI Agent
 ├── .github/
 │   └── workflows/
-│       ├── codeql.yml                  # Phân tích bảo mật tĩnh CodeQL (JDK 17)
-│       ├── java-ci.yml                 # CI: Tự động build, JUnit 5 & JaCoCo (JDK 17)
-│       └── java-cd-release.yml         # CD: Đóng gói Fat JAR & tạo GitHub Release (tag v*)
-├── architecture/                       # Tài liệu đặc tả & thiết kế hệ thống (Read-Only)
-│   ├── database/
-│   │   ├── schema.sql                  # Script tạo bảng lich_su_xu_ly & sinh_vien
-│   │   └── sample_data.sql             # Dữ liệu mẫu kiểm thử
-│   ├── diagrams/                       # Sơ đồ Mermaid (.mmd & .png)
-│   ├── docs/                           # Quy chuẩn CODE, TEST, WORKFLOW, UI/UX
-│   ├── specs/                          # SRS.md, udp-protocol.md, vigenere-and-io.md
-│   ├── tasks/                          # Chi tiết từng Task theo Sprint (DEP, CORE, SRV, UI, VER)
-│   └── verification/                   # Hồ sơ & bằng chứng nghiệm thu từng Sprint
-├── app/                                # Mã nguồn ứng dụng Gradle
-│   ├── src/
-│   │   ├── main/java/com/detai10/      # Source code (core, server, client)
-│   │   └── test/java/com/detai10/      # Unit, E2E Socket & Stress Tests (JUnit 5)
+│       ├── java-ci.yml                 # CI: Tự động biên dịch, chạy JUnit 5 và báo cáo JaCoCo
+│       ├── java-cd-release.yml         # CD: Đóng gói Fat JAR và tạo GitHub Release khi gắn tag v*
+│       └── codeql.yml                  # Phân tích bảo mật tĩnh CodeQL cho Java
+├── architecture/                       # Thư mục đặc tả bất biến (Strict Read-Only)
+│   ├── specs/                          # SRS.md, udp-protocol.md, vigenere-and-io.md, TASK_SPECIFICATIONS.md
+│   ├── database/                       # schema.sql, sample_data.sql, README.md
+│   ├── diagrams/                       # 7 sơ đồ kiến trúc Mermaid (.mmd)
+│   ├── docs/                           # AGENT_WORKFLOW.md, CODING_STANDARDS.md, TESTING_GUIDE.md, UI_UX_DESIGN_GUIDELINES.md
+│   ├── tasks/                          # 24 tệp mô tả tác vụ theo Sprint (DEP, CORE, SRV, UI, VER)
+│   └── verification/                   # Hồ sơ nghiệm thu M1-foundation đến M4-release
+├── app/                                # Mã nguồn chính và bộ kiểm thử
+│   ├── src/main/java/com/detai10/
+│   │   ├── core/                       # Logic nghiệp vụ độc lập UI (protocol, cipher, io, search, db, model)
+│   │   ├── server/                     # Ứng dụng Server (ServerApp, ServerMainFrame, UdpServerWorker)
+│   │   └── client/                     # Ứng dụng Client (ClientApp, UdpClientService, ConnectFrame, ClientMainFrame)
+│   ├── src/main/resources/             # Cấu hình database.properties.example
+│   ├── src/test/java/com/detai10/      # Bộ kiểm thử JUnit 5 (Unit, Stress Test và E2E Socket thực)
 │   └── build.gradle
-├── scripts/                            # Batch scripts build, test-headless, init-db, run
-├── AGENTS.md                           # Quy chuẩn & Hiến pháp AI Agent
-├── CONTEXT.md                          # Bối cảnh & ngôn ngữ miền nghiệp vụ
-├── START.md                            # Hướng dẫn cài đặt & khởi chạy nhanh
-├── PRODUCT BACKLOG.docx                # Tài liệu Product Backlog gốc
+├── scripts/                            # Tiện ích khởi tạo DB, kiểm thử, build và khởi chạy trên Windows
+├── AGENTS.md                           # Quy chuẩn tổng quát cho AI Agent
+├── CONTEXT.md                          # Ngữ cảnh nghiệp vụ và danh mục thuật ngữ chuẩn
+├── START.md                            # Hướng dẫn cài đặt và vận hành nhanh
 └── README.md                           # Tài liệu tổng quan dự án
 ```
 
 ---
 
-## 📋 6. Kế hoạch triển khai (Product Backlog)
+## 6. Kế hoạch triển khai (Product Backlog)
 
-Dự án được chia thành **4 Sprint**, gồm **24 Tasks** với tổng số **56 Story Points (SP)**:
+Dự án được tổ chức thành **4 Sprint**, bao gồm **24 Tasks** với tổng khối lượng **56 Story Points (SP)**:
 
-### 🔹 Sprint 1: Ngữ cảnh, Đặc tả, CSDL & Hạ tầng CI (`M1-foundation` - 9 SP)
-- `DEP-01`: Khởi tạo Repo, cấu trúc thư mục chuẩn & bộ file ngữ cảnh.
-- `DEP-02`: Viết tài liệu đặc tả (`SRS.md`, `udp-protocol.md`, ...) & vẽ sơ đồ Mermaid.
-- `DEP-03`: Thiết kế & khởi tạo CSDL (`schema.sql`, `sample_data.sql`).
-- `DEP-04`: Thiết lập GitHub Actions CI & Branch Protection.
-- `VER-01`: Kiểm chứng Sprint 1 (CI xanh và import DB thành công).
+### Sprint 1: Ngữ cảnh, Đặc tả, CSDL và Hạ tầng CI (`M1-foundation` — 9 SP)
+- `DEP-01`: Khởi tạo kho mã nguồn, cấu trúc thư mục chuẩn và bộ tài liệu ngữ cảnh.
+- `DEP-02`: Soạn thảo tài liệu đặc tả (`SRS.md`, `udp-protocol.md`, `vigenere-and-io.md`) và sơ đồ Mermaid.
+- `DEP-03`: Thiết kế và khởi tạo cơ sở dữ liệu (`schema.sql`, `sample_data.sql`).
+- `DEP-04`: Thiết lập quy trình GitHub Actions CI và quy tắc bảo vệ nhánh.
+- `VER-01`: Kiểm chứng Milestone 1 (CI đạt chuẩn và nạp cơ sở dữ liệu thành công).
 
-### 🔹 Sprint 2: Core Logic, DAO & Unit Test (`M2-core-logic` - 15 SP)
-- `CORE-01`: Cài đặt bộ phân tích gói tin UDP (`UdpProtocol`).
-- `CORE-02`: Cài đặt thuật toán mã hóa & giải mã Vigenère (`VigenereCipher`).
-- `CORE-03`: Cài đặt đọc/ghi file chế độ Văn bản (`FileHelper` Text Mode).
-- `CORE-04`: Cài đặt đọc/ghi file chế độ Nhị phân (`FileHelper` Binary Mode).
-- `CORE-05`: Cài đặt thuật toán tìm vị trí từ khóa `"HELLO"` (`KeywordFinder`).
-- `CORE-06`: Xây dựng tầng thao tác CSDL (`DatabaseHelper`).
-- `CORE-07`: Viết bộ Unit Test JUnit 5 & `CoreSelfCheck` cho Core Logic.
-- `VER-02`: Kiểm chứng Sprint 2 (Pass 100% test trên GitHub Actions).
+### Sprint 2: Core Logic, DAO và Kiểm thử đơn vị (`M2-core-logic` — 15 SP)
+- `CORE-01`: Cài đặt bộ đóng gói và phân tích gói tin UDP (`UdpProtocol` và tiện ích `DatagramPacket`).
+- `CORE-02`: Cài đặt thuật toán mã hóa và giải mã Vigenère (`VigenereCipher`).
+- `CORE-03`: Cài đặt đọc/ghi tệp chế độ văn bản (`FileHelper` Text Mode).
+- `CORE-04`: Cài đặt đọc/ghi tệp chế độ nhị phân (`FileHelper` Binary Mode).
+- `CORE-05`: Cài đặt thuật toán tìm tất cả vị trí từ khóa `"HELLO"` (`KeywordFinder`).
+- `CORE-06`: Xây dựng tầng truy xuất cơ sở dữ liệu (`DatabaseHelper`).
+- `CORE-07`: Xây dựng bộ kiểm thử JUnit 5 và lớp `CoreSelfCheck` cho tầng Core.
+- `VER-02`: Kiểm chứng Milestone 2 (100% kiểm thử Headless đạt trên GitHub Actions).
 
-### 🔹 Sprint 3: Ứng dụng Server & Client (`M3-udp-app` - 21 SP)
-- `SRV-01`: Thiết kế giao diện Server (`ServerMainFrame`).
+### Sprint 3: Ứng dụng Server và Client (`M3-udp-app` — 21 SP)
+- `SRV-01`: Thiết kế giao diện quản trị Server (`ServerMainFrame`).
 - `SRV-02`: Xây dựng luồng nền lắng nghe UDP (`UdpServerWorker`).
-- `SRV-03`: Tích hợp luồng xử lý gói DATA trên Server (DB, Vigenère, I/O, Keyword).
-- `UI-01`: Thiết kế & xử lý màn hình kết nối Client (`ConnectFrame`).
+- `SRV-03`: Tích hợp luồng xử lý gói `DATA` trên Server (Mã hóa, File I/O, Giải mã, Tìm kiếm, DB, Phản hồi).
+- `UI-01`: Thiết kế và xử lý màn hình kết nối Client (`ConnectFrame` kết hợp `UdpClientService`).
 - `UI-02`: Thiết kế màn hình làm việc chính Client (`ClientMainFrame`).
-- `UI-03`: Xử lý gửi gói DATA & nhận kết quả hiển thị trên Client.
-- `VER-03`: Kiểm chứng Sprint 3 (E2E Client – Server).
+- `UI-03`: Xử lý gửi gói `DATA` qua `SwingWorker`, nhận phản hồi và tô sáng từ khóa `"HELLO"`.
+- `VER-03`: Kiểm chứng Milestone 3 (kiểm thử tích hợp E2E bằng `DatagramSocket` thực và kiểm thử giao diện với MySQL).
 
-### 🔹 Sprint 4: Đóng gói CD, Kiểm thử & Bàn giao (`M4-release` - 11 SP)
-- `DEP-05`: Cấu hình đóng gói 2 Fat JAR (`udp-server.jar`, `udp-client.jar`).
-- `DEP-06`: Xây dựng CD Workflow tự động phát hành bản Release.
-- `VER-04`: Kiểm thử tải đồng thời & nghiệm thu bản Release.
-- `DEP-07`: Hoàn thiện `README.md`, `START.md` và tài liệu báo cáo.
-
----
-
-## ⚡ 7. Quy trình làm việc 5 bước (Standard Workflow)
-
-1. **Chốt Context & Spec:** Định nghĩa rõ file ngữ cảnh (`CONTEXT.md`, `AGENTS.md`), giao thức và sơ đồ trước khi code.
-2. **Chia Task nguyên tử:** Mỗi task được mô tả cụ thể trong `architecture/tasks/<TASK_ID>.md` với mục tiêu, file tác động, yêu cầu kỹ thuật và checklist hoàn thành.
-3. **Nhánh Git & TDD:** Phát triển theo nhánh tính năng tách từ nhánh chính (ví dụ: `feat/CORE-02-vigenere-cipher`). Logic cốt lõi được kiểm thử tự động với JUnit 5.
-4. **Pull Request & CI Gate:** Mọi PR bắt buộc phải vượt qua CI workflow (`java-ci.yml`) trước khi được merge.
-5. **Verification & Release CD:** Lưu lại bằng chứng kiểm chứng tại `architecture/verification/` sau mỗi Sprint và kích hoạt CD khi gắn thẻ tag phiên bản (`v*`).
+### Sprint 4: Đóng gói CD, Kiểm thử tải và Bàn giao (`M4-release` — 11 SP)
+- `DEP-05`: Cấu hình đóng gói 2 tệp Fat JAR (`udp-server.jar`, `udp-client.jar`).
+- `DEP-06`: Xây dựng CD Workflow tự động phát hành bản Release trên GitHub.
+- `VER-04`: Kiểm thử tải đồng thời 100 gói UDP và nghiệm thu bản phát hành.
+- `DEP-07`: Hoàn thiện `README.md`, `START.md` và bộ tài liệu báo cáo.
 
 ---
 
-## 🚀 8. Hướng dẫn cài đặt & Khởi chạy
+## 7. Quy trình làm việc tiêu chuẩn (5 bước)
+
+1. **Chốt ngữ cảnh và đặc tả:** Tham chiếu `CONTEXT.md`, `AGENTS.md` và tài liệu trong `architecture/specs/` trước khi lập trình.
+2. **Triển khai theo tác vụ nguyên tử:** Tuân thủ yêu cầu kỹ thuật và tiêu chí hoàn thành tại `architecture/tasks/<TASK_ID>.md`.
+3. **Phân nhánh Git và TDD:** Tạo nhánh tính năng từ nhánh chính/nhánh phát triển; viết kiểm thử JUnit 5 độc lập với Swing trước khi hoàn thiện mã nguồn.
+4. **Pull Request và CI Gate:** Mọi thay đổi trước khi hợp nhất bắt buộc vượt qua quy trình kiểm thử tự động (`java-ci.yml`).
+5. **Nghiệm thu và phát hành:** Lưu hồ sơ kiểm chứng theo từng cột mốc và đẩy thẻ phiên bản (`v*`) để kích hoạt đóng gói Release tự động.
+
+---
+
+## 8. Hướng dẫn cài đặt và khởi chạy
 
 ### Yêu cầu môi trường
 - **Java Development Kit (JDK) 17 LTS trở lên.**
-- Quản lý dự án: Gradle Wrapper (`./gradlew` / `.\gradlew.bat`).
-- Hệ quản trị CSDL: MySQL 8.0+ (hoặc chạy tự động với H2 In-Memory fallback).
+- Công cụ build: Gradle Wrapper (`./gradlew` trên Linux/macOS hoặc `.\gradlew.bat` trên Windows).
+- Hệ quản trị cơ sở dữ liệu: MySQL 8.0+ cục bộ (hoặc tự động chuyển sang H2 In-Memory khi chạy kiểm thử/chưa cấu hình MySQL).
 
 ### Bước 1: Khởi tạo Cơ sở dữ liệu
-Chạy script SQL tại `architecture/database/schema.sql` để tạo bảng lưu trữ lịch sử:
+Thực thi kịch bản tại `architecture/database/schema.sql` (hoặc chạy `.\scripts\init-db.bat` trên Windows):
 ```sql
--- Cấu trúc bảng lịch sử xử lý dữ liệu
 CREATE TABLE IF NOT EXISTS lich_su_xu_ly (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     client_ip VARCHAR(45) NOT NULL,
@@ -185,34 +188,30 @@ CREATE TABLE IF NOT EXISTS lich_su_xu_ly (
 );
 ```
 
-### Bước 2: Build dự án
+### Bước 2: Biên dịch, kiểm thử và đóng gói
 ```bash
-# Build & chạy toàn bộ Unit Test, E2E Socket Test & Stress Test (tại thư mục gốc)
-./gradlew test        # Windows: .\gradlew.bat test
+# Chạy toàn bộ kiểm thử tự động (Headless)
+./gradlew test --no-daemon
 
-# Đóng gói 2 Fat JAR độc lập
-./gradlew shadowJar   # Windows: .\gradlew.bat shadowJar
+# Đóng gói 2 Fat JAR độc lập vào app/build/libs/
+./gradlew shadowJar --no-daemon
 ```
 
 ### Bước 3: Khởi chạy ứng dụng
-1. **Chạy Server:**
+1. **Khởi chạy Server:**
    ```bash
    java -jar app/build/libs/udp-server.jar
    ```
-   - Nhập Port lắng nghe (mặc định: `9876`).
-   - Nhập Key mã hóa Vigenère (ví dụ: `KEYSECRET`).
-   - Nhấn **Khởi động (Start)**.
-
-2. **Chạy Client:**
+   - Nhập cổng lắng nghe (mặc định: `9876`) và khóa Vigenère (mặc định: `KEYSECRET`), sau đó nhấn **Khởi động (Start)**.
+2. **Khởi chạy Client:**
    ```bash
    java -jar app/build/libs/udp-client.jar
    ```
-   - Nhập IP Server (ví dụ: `127.0.0.1`) và Port (`9876`).
-   - Nhấn **Kết nối** (gửi PING kiểm tra).
-   - Sau khi kết nối thành công, nhập nội dung văn bản, tên file và chọn chế độ lưu (`TEXT` hoặc `BINARY`), nhấn **Gửi dữ liệu tới Server**.
+   - Nhập địa chỉ IP Server (mặc định: `127.0.0.1`) và cổng (`9876`), nhấn **Kết nối** để kiểm tra `PING`/`PONG`.
+   - Tại màn hình chính, nhập tên tệp, nội dung văn bản, chọn chế độ `TEXT` hoặc `BINARY` và nhấn **Gửi dữ liệu tới Server**.
 
 ---
 
-## 📝 9. Ghi chú quan trọng (Technical Note)
-- **Về phạm vi đề tài:** Tiêu đề đồ án là *"Quản lí Sinh Viên"* tuy nhiên nội dung kỹ thuật trọng tâm theo yêu cầu là truyền nhận gói tin qua UDP, mã hóa/giải mã Vigenère, lưu trữ File 2 chế độ và tìm kiếm vị trí từ khóa `"HELLO"`.
-- Nếu có yêu cầu tích hợp thêm bảng thông tin sinh viên, schema đã có sẵn bảng `sinh_vien` phục vụ mở rộng song song.
+## 9. Ghi chú kỹ thuật
+- **Phạm vi nghiệp vụ:** Tên đề tài là *"Quản lí Sinh Viên"*, tuy nhiên trọng tâm kỹ thuật theo đặc tả là truyền nhận dữ liệu qua giao thức UDP, mã hóa/giải mã Vigenère, đọc/ghi tệp 2 chế độ và tìm kiếm vị trí từ khóa `"HELLO"`.
+- Bảng `sinh_vien` được chuẩn bị sẵn trong `architecture/database/schema.sql` để hỗ trợ mở rộng khi có yêu cầu quản lý thông tin sinh viên song song.
