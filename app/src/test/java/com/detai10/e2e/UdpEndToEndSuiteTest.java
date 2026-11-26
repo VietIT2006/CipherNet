@@ -182,6 +182,7 @@ class UdpEndToEndSuiteTest {
         ExecutorService pool = Executors.newFixedThreadPool(clients);
         CountDownLatch latch = new CountDownLatch(clients);
         AtomicInteger successCount = new AtomicInteger(0);
+        java.util.List<Throwable> workerErrors = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         for (int i = 0; i < clients; i++) {
             final int id = i;
@@ -194,7 +195,8 @@ class UdpEndToEndSuiteTest {
                     if (parsed.isFound() && "Vi tri HELLO: [9]".equals(parsed.getMessage())) {
                         successCount.incrementAndGet();
                     }
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    workerErrors.add(e);
                 } finally {
                     latch.countDown();
                 }
@@ -204,6 +206,7 @@ class UdpEndToEndSuiteTest {
         assertTrue(latch.await(15, TimeUnit.SECONDS));
         pool.shutdown();
 
+        assertTrue(workerErrors.isEmpty(), "Không được có ngoại lệ trên luồng Client: " + workerErrors);
         assertEquals(clients, successCount.get());
         assertEquals(clients, dbHelper.getAllHistory().size());
     }

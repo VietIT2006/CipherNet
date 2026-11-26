@@ -73,6 +73,21 @@ class UdpProtocolTest {
     }
 
     @Test
+    @DisplayName("Security: Chặn ký tự điều khiển, dấu chấm cuối và tên thiết bị Windows dành riêng")
+    void testSanitizeFileNameBlocksControlCharsAndReservedNames() {
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("evil\n.txt"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("evil\r.txt"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("evil\0.txt"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("evil\t.txt"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("trailing."));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("CON"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("nul.txt"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("Com1.dat"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.sanitizeFileName("LPT9"));
+        assertEquals("report.2026.txt", UdpProtocol.sanitizeFileName("report.2026.txt"));
+    }
+
+    @Test
     @DisplayName("EX-03: Từ chối gói DATA > 30.000 bytes và DatagramPacket > 65.507 bytes UTF-8")
     void testPayloadSizeLimit() throws Exception {
         String oversizedData = "A".repeat(30001);
@@ -136,5 +151,25 @@ class UdpProtocolTest {
         UdpProtocol.ResponsePayload parsedError = UdpProtocol.parseResponsePacket(errorMsg);
         assertTrue(parsedError.isError());
         assertEquals("Loi ket noi", parsedError.getMessage());
+    }
+
+    @Test
+    @DisplayName("Kiểm thử các nhánh biên của UdpProtocol (null, offset/length vượt giới hạn, gói phản hồi lỗi)")
+    void testProtocolEdgeBranches() {
+        assertFalse(UdpProtocol.isPing(null));
+        assertFalse(UdpProtocol.isPong(null));
+        assertEquals("DATA|TEXT|a.txt|abc", UdpProtocol.createDataMessage(null, "a.txt", "abc"));
+        assertEquals("RESULT|OK|Custom", UdpProtocol.createResultOkMessage("Custom"));
+        assertEquals("RESULT|OK|", UdpProtocol.createResultOkMessage(null));
+        assertEquals("ERROR|Loi khong xac dinh", UdpProtocol.createErrorMessage(null));
+
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.parseResponsePacket(null));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.parseResponsePacket("  "));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.parseResponsePacket("RESULT|OK"));
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.parseResponsePacket("UNKNOWN|123"));
+
+        byte[] oversized = new byte[UdpProtocol.BUFFER_SIZE + 1];
+        DatagramPacket tooBig = new DatagramPacket(oversized, oversized.length);
+        assertThrows(IllegalArgumentException.class, () -> UdpProtocol.extractPacketMessage(tooBig));
     }
 }
