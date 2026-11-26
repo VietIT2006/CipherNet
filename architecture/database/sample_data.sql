@@ -11,6 +11,6 @@ INSERT INTO sinh_vien (ma_sv, ho_ten, lop, email, ngay_sinh) VALUES
 ('B21DCCN003', 'Lê Hoàng Cường', 'D21CQCN02-B', 'cuong.lh@ptit.edu.vn', '2003-12-10');
 
 -- Dữ liệu mẫu bảng lich_su_xu_ly
-INSERT INTO lich_su_xu_ly (client_ip, file_name, file_mode, original_content, encrypted_content, hello_positions) VALUES
-('127.0.0.1', 'sinhvien_test1.txt', 'TEXT', 'HELLO world this is a test with HELLO keyword', 'RIJVS dztpk drtc sc e mvce amph RIJVS bprpzte', '0, 32'),
-('127.0.0.1', 'data_binary.bin', 'BINARY', 'No greeting here just simple characters', 'Xy kziipve hsvi nywt gmwxti trrvritovw', NULL);
+INSERT INTO lich_su_xu_ly (client_ip, file_name, io_mode, original_content, encrypted_content, hello_positions) VALUES
+('127.0.0.1', 'sinhvien_test1.txt', 'TEXT', 'HELLO world this is a test with HELLO keyword', 'RIJVS dztpk drtc sc e mvce amph RIJVS bprpzte', '[0, 32]'),
+('127.0.0.1', 'data_binary.bin', 'BINARY', 'No greeting here just simple characters', 'Xy kziipve hsvi nywt gmwxti trrvritovw', 'Khong tim thay tu khoa HELLO');

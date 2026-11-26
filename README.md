@@ -20,7 +20,7 @@ Dự án hiện thực mô hình Client – Server phân tán sử dụng Java S
 
 | Thành phần | Công nghệ / Thư viện | Chi tiết sử dụng |
 | :--- | :--- | :--- |
-| **Ngôn ngữ** | Java 21 (LTS mới nhất) | Phiên bản chuẩn cho toàn dự án (Tương thích 17+) |
+| **Ngôn ngữ** | Java 17 LTS (tương thích 17+) | Phiên bản chuẩn cho toàn dự án (`--release 17`) |
 | **Giao diện** | Java Swing | `ServerMainFrame`, `ConnectFrame`, `ClientMainFrame` |
 | **Mạng** | Java UDP Socket | `DatagramSocket`, `DatagramPacket` |
 | **I/O File** | Java I/O (2 chế độ) | `BufferedWriter`/`BufferedReader` (Text) & `DataOutputStream`/`DataInputStream` bọc Buffer (Binary) |
@@ -47,7 +47,7 @@ Giao thức trao đổi dữ liệu tùy biến giữa Client và Server:
   - `<fileName>`: Tên file lưu trên Server.
   - `<content>`: Nội dung dữ liệu văn bản do Client nhập.
 - **Cú pháp phản hồi:**  
-  `RESULT|<status>|<message>|<indices>`
+  `RESULT|<status>|<message>` (ví dụ: `RESULT|OK|Vi tri HELLO: [0, 15]` hoặc `RESULT|NOT_FOUND|Khong tim thay tu khoa HELLO`)
   - Trả về danh sách các vị trí (index) tìm thấy từ khóa `"HELLO"` hoặc thông báo không tìm thấy.
 
 ---
@@ -164,22 +164,22 @@ Dự án được chia thành **4 Sprint**, gồm **24 Tasks** với tổng số
 ## 🚀 8. Hướng dẫn cài đặt & Khởi chạy
 
 ### Yêu cầu môi trường
-- Java Development Kit (JDK) 21 LTS (hoặc JDK 17 trở lên).
-- Quản lý dự án: Gradle hoặc Maven.
-- Hệ quản trị CSDL: MySQL hoặc SQL Server.
+- **Java Development Kit (JDK) 17 LTS trở lên.**
+- Quản lý dự án: Gradle Wrapper (`./gradlew` / `.\gradlew.bat`).
+- Hệ quản trị CSDL: MySQL 8.0+ (hoặc chạy tự động với H2 In-Memory fallback).
 
 ### Bước 1: Khởi tạo Cơ sở dữ liệu
 Chạy script SQL tại `architecture/database/schema.sql` để tạo bảng lưu trữ lịch sử:
 ```sql
 -- Cấu trúc bảng lịch sử xử lý dữ liệu
 CREATE TABLE IF NOT EXISTS lich_su_xu_ly (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    client_ip VARCHAR(50) NOT NULL,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    client_ip VARCHAR(45) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
-    file_mode VARCHAR(10) NOT NULL,
+    io_mode VARCHAR(10) NOT NULL,
     original_content TEXT NOT NULL,
     encrypted_content TEXT NOT NULL,
-    hello_positions VARCHAR(255),
+    hello_positions VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```

@@ -8,17 +8,17 @@ COLLATE utf8mb4_unicode_ci;
 
 USE detai10_db;
 
--- 1. BẢNG TRỌNG TÂM: Lịch sử xử lý gói tin UDP từ Client
+-- 1. BẢNG TRỌNG TÂM: Lịch sử xử lý gói tin UDP từ Client (khớp SRS Mục 3.2)
 DROP TABLE IF EXISTS lich_su_xu_ly;
 CREATE TABLE lich_su_xu_ly (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    client_ip VARCHAR(50) NOT NULL COMMENT 'Địa chỉ IP của Client gửi gói tin',
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    client_ip VARCHAR(45) NOT NULL COMMENT 'Địa chỉ IP của Client gửi gói tin',
     file_name VARCHAR(255) NOT NULL COMMENT 'Tên file lưu trữ trên Server',
-    file_mode VARCHAR(10) NOT NULL COMMENT 'Chế độ lưu trữ: TEXT hoặc BINARY',
-    original_content TEXT NOT NULL COMMENT 'Nội dung nguyên bản Client gửi',
+    io_mode VARCHAR(10) NOT NULL COMMENT 'Chế độ đọc/ghi: TEXT hoặc BINARY',
+    original_content TEXT NOT NULL COMMENT 'Nội dung nguyên bản Client gửi lên',
     encrypted_content TEXT NOT NULL COMMENT 'Nội dung sau khi mã hóa Vigenère',
-    hello_positions VARCHAR(255) DEFAULT NULL COMMENT 'Danh sách vị trí xuất hiện của HELLO (VD: 0, 15)',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời gian Server tiếp nhận và xử lý'
+    hello_positions VARCHAR(500) DEFAULT NULL COMMENT 'Danh sách index của HELLO hoặc thông báo không tìm thấy',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm Server tiếp nhận xử lý'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. BẢNG BỔ TRỢ: Quản lý thông tin Sinh viên (Đáp ứng tiêu đề Đề tài)

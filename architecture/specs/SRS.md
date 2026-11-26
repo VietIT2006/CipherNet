@@ -12,13 +12,13 @@ Tài liệu Đặc tả Yêu cầu Phần mềm (SRS) cho hệ thống Quản l�
   - `TEXT`: Định dạng văn bản thường UTF-8.
   - `BINARY`: Định dạng nhị phân có đệm (Data Stream).
 - **FR-C04: Gửi gói tin dữ liệu:** Đóng gói payload `DATA|<mode>|<fileName>|<content>` và gửi qua UDP Socket.
-- **FR-C05: Nhận & Hiển thị kết quả:** Nhận kết quả từ Server phản hồi (danh sách các vị trí tìm thấy từ khóa `"HELLO"` hoặc thông báo không có) và hiển thị lên giao diện.
+- **FR-C05: Nhận & Hiển thị kết quả:** Nhận kết quả từ Server phản hồi (`RESULT|OK|Vi tri HELLO: [...]` hoặc `RESULT|NOT_FOUND|...`) và hiển thị lên giao diện kèm highlight `"HELLO"`.
 
 ### 2.2. Phía Server
 - **FR-S01: Cấu hình cổng & Khóa Vigenère:** Cho phép người quản trị nhập Port lắng nghe và Khóa giải mã Vigenère trên giao diện trước khi bật Server.
 - **FR-S02: Lắng nghe phi đồng bộ (Non-blocking):** Chạy Worker Thread riêng để tiếp nhận các gói tin UDP đến mà không treo giao diện.
 - **FR-S03: Phản hồi Healthcheck:** Tự động phản hồi `PONG` ngay khi nhận gói `PING` từ bất kỳ Client nào.
-- **FR-S04: Ghi vết Cơ sở dữ liệu:** Ghi nhận thông tin giao dịch vào bảng `lich_su_xu_ly` bao gồm IP Client, tên file, chế độ, nội dung gốc, nội dung mã hóa, vị trí "HELLO", thời gian.
+- **FR-S04: Ghi vết Cơ sở dữ liệu:** Ghi nhận thông tin giao dịch vào bảng `lich_su_xu_ly` bao gồm `client_ip`, `file_name`, `io_mode` (`TEXT`/`BINARY`), `original_content`, `encrypted_content`, `hello_positions`, `created_at`.
 - **FR-S05: Mã hóa Vigenère:** Mã hóa nội dung văn bản nhận được bằng khóa bí mật. Chỉ biến đổi chữ cái `A-Z`, `a-z`, bảo toàn nguyên vẹn số, dấu cách và ký tự đặc biệt.
 - **FR-S06: Lưu & Đọc kiểm chứng File:**
   - Chế độ `TEXT`: Dùng `BufferedWriter` ghi file UTF-8 $\rightarrow$ đọc lại bằng `BufferedReader`.

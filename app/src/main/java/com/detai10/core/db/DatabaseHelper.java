@@ -16,13 +16,9 @@ import java.util.Properties;
  * Tầng truy xuất cơ sở dữ liệu (DAO) quản lý kết nối JDBC, khởi tạo bảng tự động
  * và lưu trữ an toàn lịch sử xử lý gói tin UDP từ Client.
  * <p>
- * Yêu cầu kỹ thuật & Kiến trúc:
- * - Hỗ trợ cả MySQL (Localhost:3306) cho môi trường triển khai thực tế và H2 Database (In-memory/Embedded)
- *   cho môi trường kiểm thử tự động (Unit Test / CI Headless).
- * - Tự động chạy DDL khởi tạo bảng {@code lich_su_xu_ly} và {@code sinh_vien} nếu chưa tồn tại.
- * - Sử dụng 100% {@link PreparedStatement} với tham số {@code ?} để chống triệt để tấn công SQL Injection.
- * - Quản lý an toàn tài nguyên mạng và DB qua cú pháp {@code try-with-resources}.
- * - Tuân thủ Quy tắc 1: Không import thư viện giao diện AWT/Swing.
+ * Khớp lược đồ SRS Mục 3.2 (bảng {@code lich_su_xu_ly} với cột {@code io_mode}).
+ * Sử dụng 100% {@link PreparedStatement} với tham số {@code ?} để chống SQL Injection.
+ * Không import thư viện giao diện AWT/Swing (Headless First).
  */
 public class DatabaseHelper implements AutoCloseable {
 
@@ -32,13 +28,13 @@ public class DatabaseHelper implements AutoCloseable {
 
     private static final String SQL_CREATE_TABLE_HISTORY =
             "CREATE TABLE IF NOT EXISTS lich_su_xu_ly (" +
-            "    id INT AUTO_INCREMENT PRIMARY KEY," +
-            "    client_ip VARCHAR(50) NOT NULL," +
+            "    id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+            "    client_ip VARCHAR(45) NOT NULL," +
             "    file_name VARCHAR(255) NOT NULL," +
-            "    file_mode VARCHAR(10) NOT NULL," +
+            "    io_mode VARCHAR(10) NOT NULL," +
             "    original_content TEXT NOT NULL," +
             "    encrypted_content TEXT NOT NULL," +
-            "    hello_positions VARCHAR(255) DEFAULT NULL," +
+            "    hello_positions VARCHAR(500) DEFAULT NULL," +
             "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
             ");";
 
@@ -52,15 +48,15 @@ public class DatabaseHelper implements AutoCloseable {
             ");";
 
     private static final String SQL_INSERT_HISTORY =
-            "INSERT INTO lich_su_xu_ly (client_ip, file_name, file_mode, original_content, encrypted_content, hello_positions) " +
+            "INSERT INTO lich_su_xu_ly (client_ip, file_name, io_mode, original_content, encrypted_content, hello_positions) " +
             "VALUES (?, ?, ?, ?, ?, ?)";
 
     private static final String SQL_SELECT_ALL_HISTORY =
-            "SELECT id, client_ip, file_name, file_mode, original_content, encrypted_content, hello_positions, created_at " +
+            "SELECT id, client_ip, file_name, io_mode, original_content, encrypted_content, hello_positions, created_at " +
             "FROM lich_su_xu_ly ORDER BY created_at DESC, id DESC";
 
     private static final String SQL_SELECT_RECENT_HISTORY =
-            "SELECT id, client_ip, file_name, file_mode, original_content, encrypted_content, hello_positions, created_at " +
+            "SELECT id, client_ip, file_name, io_mode, original_content, encrypted_content, hello_positions, created_at " +
             "FROM lich_su_xu_ly ORDER BY created_at DESC, id DESC LIMIT ?";
 
     private static final String SQL_CLEAR_HISTORY = "DELETE FROM lich_su_xu_ly";
@@ -71,42 +67,44 @@ public class DatabaseHelper implements AutoCloseable {
     private final String username;
     private final String password;
 
-    /**
-     * Khởi tạo DatabaseHelper với thông tin kết nối chỉ định tường minh.
-     * Tự động khởi tạo cấu trúc bảng (initDatabase).
-     *
-     * @param jdbcUrl  Chuỗi kết nối JDBC
-     * @param username Tên đăng nhập CSDL
-     * @param password Mật khẩu đăng nhập CSDL
-     */
     public DatabaseHelper(String jdbcUrl, String username, String password) {
         this.jdbcUrl = jdbcUrl;
         this.username = username;
         this.password = password;
+        ensureDriverLoaded(jdbcUrl);
         initDatabase();
     }
 
     /**
-     * Phương thức khởi tạo tĩnh cho môi trường kiểm thử / In-Memory (H2 Database).
+     * Đảm bảo JDBC Driver được nạp tường minh (tránh lỗi trùng META-INF/services/java.sql.Driver khi đóng gói Fat JAR).
      */
+    private static void ensureDriverLoaded(String url) {
+        if (url == null) {
+            return;
+        }
+        String driverClass = url.startsWith("jdbc:h2:")
+                ? "org.h2.Driver"
+                : (url.startsWith("jdbc:mysql:") ? "com.mysql.cj.jdbc.Driver" : null);
+        if (driverClass != null) {
+            try {
+                Class.forName(driverClass);
+            } catch (ClassNotFoundException e) {
+                System.err.println("[WARN] Không nạp được JDBC Driver " + driverClass + ": " + e.getMessage());
+            }
+        }
+    }
+
     public static DatabaseHelper createInMemoryHelper() {
         return new DatabaseHelper(DEFAULT_H2_URL, DEFAULT_H2_USER, DEFAULT_H2_PASSWORD);
     }
 
-    /**
-     * Phương thức khởi tạo tĩnh cho MySQL cục bộ.
-     */
     public static DatabaseHelper createMysqlHelper(String host, int port, String dbName, String user, String password) {
-        String url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8",
+        String url = String.format(
+                "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8",
                 host, port, dbName);
         return new DatabaseHelper(url, user, password);
     }
 
-    /**
-     * Lấy thể hiện Singleton mặc định của DatabaseHelper.
-     * Tự động đọc cấu hình từ file database.properties nếu có;
-     * nếu kết nối MySQL không khả dụng hoặc file không tồn tại, tự động chuyển sang H2 in-memory an toàn.
-     */
     public static synchronized DatabaseHelper getInstance() {
         if (defaultInstance == null) {
             defaultInstance = createDefaultHelper();
@@ -114,9 +112,6 @@ public class DatabaseHelper implements AutoCloseable {
         return defaultInstance;
     }
 
-    /**
-     * Đặt lại thể hiện Singleton (phục vụ test).
-     */
     public static synchronized void setInstance(DatabaseHelper instance) {
         defaultInstance = instance;
     }
@@ -131,7 +126,8 @@ public class DatabaseHelper implements AutoCloseable {
                 String dbName = props.getProperty("db.name", "detai10_db");
                 String user = props.getProperty("db.user", "root");
                 String pass = props.getProperty("db.password", "");
-                String url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8",
+                String url = String.format(
+                        "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8",
                         host, port, dbName);
 
                 try {
@@ -141,26 +137,21 @@ public class DatabaseHelper implements AutoCloseable {
                         return helper;
                     }
                 } catch (Exception e) {
-                    System.out.println("[WARN] Không kết nối được MySQL local, tự động chuyển sang H2 In-Memory DB: " + e.getMessage());
+                    System.err.println("[WARN] Không kết nối được MySQL local, chuyển sang H2 In-Memory DB: " + e.getMessage());
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println("[WARN] Không đọc được database.properties: " + e.getMessage());
         }
 
         System.out.println("[INFO] Sử dụng H2 In-Memory Database cho phiên làm việc.");
         return createInMemoryHelper();
     }
 
-    /**
-     * Lấy một kết nối JDBC mới từ cấu hình.
-     */
     public Connection getConnection() throws SQLException {
         return DriverManager.getConnection(jdbcUrl, username, password);
     }
 
-    /**
-     * Kiểm tra trạng thái kết nối tới CSDL.
-     */
     public boolean isConnectionAlive() {
         try (Connection conn = getConnection()) {
             return conn != null && !conn.isClosed();
@@ -169,9 +160,6 @@ public class DatabaseHelper implements AutoCloseable {
         }
     }
 
-    /**
-     * Tự động chạy DDL khởi tạo bảng lich_su_xu_ly và sinh_vien nếu chưa tồn tại.
-     */
     public final void initDatabase() {
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
@@ -183,12 +171,13 @@ public class DatabaseHelper implements AutoCloseable {
     }
 
     /**
-     * Lưu một bản ghi lịch sử xử lý vào CSDL bằng PreparedStatement parameterized query (chống SQL Injection 100%).
-     * Tự động gán khóa chính tự tăng (id) vào đối tượng {@link HistoryRecord}.
-     *
-     * @param record Đối tượng chứa thông tin giao dịch cần lưu
-     * @return {@code true} nếu lưu thành công, {@code false} nếu xảy ra lỗi
+     * Ghi bản ghi lịch sử theo tên hàm chuẩn hóa trong SRS FR-06 (insertLog).
      */
+    public boolean insertLog(String clientIp, String fileName, String ioMode,
+                             String originalContent, String encryptedContent, String helloPositions) {
+        return saveHistory(new HistoryRecord(clientIp, fileName, ioMode, originalContent, encryptedContent, helloPositions));
+    }
+
     public boolean saveHistory(HistoryRecord record) {
         if (record == null) {
             return false;
@@ -199,17 +188,20 @@ public class DatabaseHelper implements AutoCloseable {
 
             ps.setString(1, record.getClientIp() != null ? record.getClientIp() : "UNKNOWN");
             ps.setString(2, record.getFileName() != null ? record.getFileName() : "unnamed.dat");
-            ps.setString(3, record.getFileMode() != null ? record.getFileMode() : "TEXT");
+            ps.setString(3, record.getIoMode() != null ? record.getIoMode() : "TEXT");
             ps.setString(4, record.getOriginalContent() != null ? record.getOriginalContent() : "");
             ps.setString(5, record.getEncryptedContent() != null ? record.getEncryptedContent() : "");
-            ps.setString(6, record.getHelloPositions() != null ? record.getHelloPositions() : "NOT_FOUND");
+            ps.setString(6, record.getHelloPositions() != null ? record.getHelloPositions() : "Khong tim thay tu khoa HELLO");
 
             int affectedRows = ps.executeUpdate();
             if (affectedRows > 0) {
                 try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
-                        record.setId(generatedKeys.getInt(1));
+                        record.setId(generatedKeys.getLong(1));
                     }
+                }
+                if (record.getCreatedAt() == null) {
+                    record.setCreatedAt(new Timestamp(System.currentTimeMillis()));
                 }
                 return true;
             }
@@ -219,11 +211,6 @@ public class DatabaseHelper implements AutoCloseable {
         return false;
     }
 
-    /**
-     * Lấy danh sách toàn bộ lịch sử xử lý gói tin, sắp xếp giảm dần theo thời gian (ORDER BY created_at DESC, id DESC).
-     *
-     * @return Danh sách các bản ghi {@link HistoryRecord}
-     */
     public List<HistoryRecord> getAllHistory() {
         List<HistoryRecord> list = new ArrayList<>();
         try (Connection conn = getConnection();
@@ -239,12 +226,6 @@ public class DatabaseHelper implements AutoCloseable {
         return list;
     }
 
-    /**
-     * Lấy danh sách lịch sử xử lý gần nhất với số lượng giới hạn, phục vụ JTable hiển thị trên Server.
-     *
-     * @param limit Số lượng bản ghi tối đa cần lấy
-     * @return Danh sách các bản ghi gần nhất
-     */
     public List<HistoryRecord> getRecentHistory(int limit) {
         List<HistoryRecord> list = new ArrayList<>();
         int effectiveLimit = Math.max(limit, 1);
@@ -263,9 +244,6 @@ public class DatabaseHelper implements AutoCloseable {
         return list;
     }
 
-    /**
-     * Xóa sạch toàn bộ dữ liệu trong bảng lich_su_xu_ly (phục vụ reset trạng thái kiểm thử).
-     */
     public void clearHistory() {
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
@@ -276,20 +254,20 @@ public class DatabaseHelper implements AutoCloseable {
     }
 
     private HistoryRecord mapResultSetToRecord(ResultSet rs) throws SQLException {
-        int id = rs.getInt("id");
+        long id = rs.getLong("id");
         String clientIp = rs.getString("client_ip");
         String fileName = rs.getString("file_name");
-        String fileMode = rs.getString("file_mode");
+        String ioMode = rs.getString("io_mode");
         String originalContent = rs.getString("original_content");
         String encryptedContent = rs.getString("encrypted_content");
         String helloPositions = rs.getString("hello_positions");
         Timestamp createdAt = rs.getTimestamp("created_at");
 
-        return new HistoryRecord(id, clientIp, fileName, fileMode, originalContent, encryptedContent, helloPositions, createdAt);
+        return new HistoryRecord(id, clientIp, fileName, ioMode, originalContent, encryptedContent, helloPositions, createdAt);
     }
 
     @Override
     public void close() {
-        // Trong kiến trúc Connection per request, các connection đóng tự động qua try-with-resources.
+        // Kết nối được quản lý qua try-with-resources trên mỗi truy vấn.
     }
 }

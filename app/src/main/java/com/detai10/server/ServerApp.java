@@ -1,6 +1,9 @@
 package com.detai10.server;
 
+import com.detai10.server.ui.ServerMainFrame;
+
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  * Điểm khởi chạy chính (Main Entry Point) của ứng dụng Server.
@@ -14,8 +17,11 @@ public class ServerApp {
         System.out.println("==================================================");
 
         SwingUtilities.invokeLater(() -> {
-            // Khởi tạo giao diện Server khi có ServerMainFrame
-            System.out.println("[INFO] Khởi tạo luồng giao diện Server...");
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ignored) {
+            }
+            new ServerMainFrame().setVisible(true);
         });
     }
 }

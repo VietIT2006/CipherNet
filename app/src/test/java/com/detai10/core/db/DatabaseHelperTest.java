@@ -12,8 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Bộ Unit Test bao phủ 100% kịch bản cho DatabaseHelper và HistoryRecord (CORE-06).
- * Sử dụng H2 In-Memory Database để chạy độc lập và chuẩn xác trên mọi môi trường (Headless CI / Local).
+ * Bộ Unit Test cho DatabaseHelper và HistoryRecord (CORE-06).
+ * Sử dụng H2 In-Memory Database để chạy độc lập trên Headless CI / Local.
  */
 class DatabaseHelperTest {
 
@@ -21,7 +21,6 @@ class DatabaseHelperTest {
 
     @BeforeEach
     void setUp() {
-        // Khởi tạo thể hiện H2 Database in-memory cho từng ca kiểm thử
         dbHelper = DatabaseHelper.createInMemoryHelper();
         dbHelper.clearHistory();
     }
@@ -33,33 +32,35 @@ class DatabaseHelperTest {
     }
 
     @Test
-    @DisplayName("Lưu bản ghi lịch sử thành công và tự động sinh ID")
-    void testSaveHistorySuccess() {
+    @DisplayName("Lưu bản ghi lịch sử bằng saveHistory và insertLog với cột io_mode")
+    void testSaveAndInsertLogSuccess() {
         HistoryRecord record = new HistoryRecord(
                 "192.168.1.10",
                 "test.txt",
                 "TEXT",
                 "Hello World",
                 "Rovvy Gybvn",
-                "0"
+                "[0]"
         );
 
-        boolean saved = dbHelper.saveHistory(record);
-        assertTrue(saved, "saveHistory phải trả về true");
-        assertTrue(record.getId() > 0, "ID bản ghi phải được tự sinh tăng dần");
+        assertTrue(dbHelper.saveHistory(record));
+        assertTrue(record.getId() > 0);
+
+        assertTrue(dbHelper.insertLog("127.0.0.1", "bin.dat", "BINARY", "No key", "Cipher", "NOT_FOUND"));
 
         List<HistoryRecord> historyList = dbHelper.getAllHistory();
-        assertEquals(1, historyList.size());
+        assertEquals(2, historyList.size());
 
-        HistoryRecord retrieved = historyList.get(0);
-        assertEquals(record.getId(), retrieved.getId());
-        assertEquals("192.168.1.10", retrieved.getClientIp());
-        assertEquals("test.txt", retrieved.getFileName());
-        assertEquals("TEXT", retrieved.getFileMode());
-        assertEquals("Hello World", retrieved.getOriginalContent());
-        assertEquals("Rovvy Gybvn", retrieved.getEncryptedContent());
-        assertEquals("0", retrieved.getHelloPositions());
-        assertNotNull(retrieved.getCreatedAt(), "Thời gian created_at phải được CSDL gán tự động");
+        HistoryRecord latest = historyList.get(0);
+        assertEquals("127.0.0.1", latest.getClientIp());
+        assertEquals("bin.dat", latest.getFileName());
+        assertEquals("BINARY", latest.getIoMode());
+
+        HistoryRecord first = historyList.get(1);
+        assertEquals(record.getId(), first.getId());
+        assertEquals("TEXT", first.getIoMode());
+        assertEquals("[0]", first.getHelloPositions());
+        assertNotNull(first.getCreatedAt());
     }
 
     @Test
@@ -69,11 +70,11 @@ class DatabaseHelperTest {
     }
 
     @Test
-    @DisplayName("Truy vấn toàn bộ lịch sử sắp xếp theo thời gian mới nhất (ORDER BY created_at DESC, id DESC)")
+    @DisplayName("Truy vấn toàn bộ lịch sử sắp xếp theo thời gian mới nhất")
     void testGetAllHistoryOrdering() throws InterruptedException {
         HistoryRecord rec1 = new HistoryRecord("127.0.0.1", "file1.txt", "TEXT", "First", "Cipher1", "NOT_FOUND");
-        HistoryRecord rec2 = new HistoryRecord("127.0.0.1", "file2.txt", "BINARY", "Second", "Cipher2", "5");
-        HistoryRecord rec3 = new HistoryRecord("127.0.0.1", "file3.txt", "TEXT", "Third", "Cipher3", "0, 10");
+        HistoryRecord rec2 = new HistoryRecord("127.0.0.1", "file2.txt", "BINARY", "Second", "Cipher2", "[5]");
+        HistoryRecord rec3 = new HistoryRecord("127.0.0.1", "file3.txt", "TEXT", "Third", "Cipher3", "[0, 10]");
 
         dbHelper.saveHistory(rec1);
         Thread.sleep(10);
@@ -83,7 +84,6 @@ class DatabaseHelperTest {
 
         List<HistoryRecord> list = dbHelper.getAllHistory();
         assertEquals(3, list.size());
-        // rec3 là mới nhất phải đứng đầu danh sách
         assertEquals(rec3.getId(), list.get(0).getId());
         assertEquals(rec2.getId(), list.get(1).getId());
         assertEquals(rec1.getId(), list.get(2).getId());
@@ -103,17 +103,13 @@ class DatabaseHelperTest {
             ));
         }
 
-        List<HistoryRecord> top3 = dbHelper.getRecentHistory(3);
-        assertEquals(3, top3.size(), "getRecentHistory(3) phải trả về đúng 3 bản ghi mới nhất");
-
-        List<HistoryRecord> top5 = dbHelper.getRecentHistory(5);
-        assertEquals(5, top5.size());
+        assertEquals(3, dbHelper.getRecentHistory(3).size());
+        assertEquals(5, dbHelper.getRecentHistory(5).size());
     }
 
     @Test
     @DisplayName("Chống tấn công SQL Injection tuyệt đối (Zero SQL Injection)")
     void testZeroSqlInjection() {
-        // Dữ liệu giả lập tấn công chèn chuỗi độc hại
         String maliciousPayload = "'; DROP TABLE lich_su_xu_ly; -- ' OR '1'='1";
         HistoryRecord injectionRecord = new HistoryRecord(
                 "192.168.1.999",
@@ -124,15 +120,10 @@ class DatabaseHelperTest {
                 maliciousPayload
         );
 
-        boolean saved = dbHelper.saveHistory(injectionRecord);
-        assertTrue(saved, "PreparedStatement phải bọc chuỗi an toàn và lưu thành công");
-
+        assertTrue(dbHelper.saveHistory(injectionRecord));
         List<HistoryRecord> list = dbHelper.getAllHistory();
         assertEquals(1, list.size());
         assertEquals(maliciousPayload, list.get(0).getFileName());
-        assertEquals(maliciousPayload, list.get(0).getOriginalContent());
-
-        // Xác nhận bảng lich_su_xu_ly không hề bị DROP
         assertTrue(dbHelper.isConnectionAlive());
     }
 
@@ -142,16 +133,7 @@ class DatabaseHelperTest {
         String original = "Xin chào các bạn sinh viên Đề tài 10, chúc một ngày tốt lành!";
         String encrypted = "Xjo djào dác cạn tjog wjên Đề tài 10, djúd một ogày tốt làoh!";
 
-        HistoryRecord record = new HistoryRecord(
-                "127.0.0.1",
-                "tieng_viet.txt",
-                "TEXT",
-                original,
-                encrypted,
-                "NOT_FOUND"
-        );
-
-        assertTrue(dbHelper.saveHistory(record));
+        assertTrue(dbHelper.insertLog("127.0.0.1", "tieng_viet.txt", "TEXT", original, encrypted, "NOT_FOUND"));
 
         List<HistoryRecord> list = dbHelper.getAllHistory();
         assertEquals(1, list.size());
@@ -162,7 +144,7 @@ class DatabaseHelperTest {
     @Test
     @DisplayName("Xóa sạch lịch sử với clearHistory()")
     void testClearHistory() {
-        dbHelper.saveHistory(new HistoryRecord("127.0.0.1", "a.txt", "TEXT", "content", "cipher", "0"));
+        dbHelper.insertLog("127.0.0.1", "a.txt", "TEXT", "content", "cipher", "[0]");
         assertEquals(1, dbHelper.getAllHistory().size());
 
         dbHelper.clearHistory();

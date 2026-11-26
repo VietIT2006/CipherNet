@@ -15,26 +15,22 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
- * Worker Thread chuyên trách lắng nghe và xử lý các gói tin UDP từ Client (SRV-02, SRV-04).
+ * Worker Thread chuyên trách lắng nghe và xử lý các gói tin UDP từ Client (SRV-02, SRV-03).
  * <p>
- * Quy trình xử lý gói tin DATA:
- * 1. Bóc tách an toàn gói DATA|&lt;mode&gt;|&lt;fileName&gt;|&lt;content&gt;
- * 2. Mã hóa nội dung văn bản bằng Vigenère Cipher với serverKey
- * 3. Ghi file mã hóa xuống thư mục server_storage/ theo chế độ TEXT hoặc BINARY
- * 4. Đọc ngược lại từ file để xác nhận toàn vẹn (Round-trip verification)
- * 5. Giải mã và quét tìm tất cả vị trí xuất hiện của từ khóa "HELLO"
- * 6. Lưu toàn bộ giao dịch vào CSDL qua DatabaseHelper.saveHistory(record) (100% PreparedStatement)
- * 7. Đóng gói và phát gói phản hồi UDP về lại địa chỉ IP & Port của Client:
- *    - Tìm thấy: RESULT|FOUND|&lt;danh_sách_vị_trí&gt;
- *    - Không tìm thấy: RESULT|NOT_FOUND|Khong tim thay tu khoa HELLO
- *    - Gặp lỗi: ERROR|&lt;thông_điệp_lỗi&gt;
+ * Đảm bảo các quy tắc SRS:
+ * - BR-01: Bắt buộc đọc ngược bản mã từ file trên đĩa rồi mới giải mã để kiểm chứng I/O.
+ * - NFR-02: Chuẩn hóa và xác thực đường dẫn file nằm trong thư mục {@code storageDir}.
+ * - EX-06: Đồng bộ hóa thao tác ghi/đọc trên cùng một tên file khi nhiều Client gửi đồng thời.
+ * - EX-05: Xử lý lỗi CSDL hoặc I/O an toàn, ghi log và phản hồi {@code ERROR|...} không sập Server.
  */
 public class UdpServerWorker implements Runnable {
 
@@ -45,6 +41,7 @@ public class UdpServerWorker implements Runnable {
     private final ExecutorService requestPool;
     private final Consumer<String> logListener;
     private final Consumer<HistoryRecord> recordListener;
+    private final ConcurrentHashMap<String, Object> fileLocks = new ConcurrentHashMap<>();
 
     private volatile DatagramSocket socket;
     private volatile boolean running = false;
@@ -53,7 +50,8 @@ public class UdpServerWorker implements Runnable {
     public UdpServerWorker(int port, String cipherKey, File storageDir, DatabaseHelper dbHelper,
                            Consumer<String> logListener, Consumer<HistoryRecord> recordListener) {
         this.port = port;
-        this.cipherKey = cipherKey != null && !cipherKey.trim().isEmpty() ? cipherKey.trim() : VigenereCipher.DEFAULT_KEY;
+        this.cipherKey = VigenereCipher.normalizeKey(
+                cipherKey != null && !cipherKey.trim().isEmpty() ? cipherKey : VigenereCipher.DEFAULT_KEY);
         this.storageDir = storageDir != null ? storageDir : new File("server_storage");
         this.dbHelper = dbHelper != null ? dbHelper : DatabaseHelper.getInstance();
         this.logListener = logListener;
@@ -64,6 +62,9 @@ public class UdpServerWorker implements Runnable {
     public synchronized void start() throws SocketException {
         if (running) {
             return;
+        }
+        if (!storageDir.exists()) {
+            storageDir.mkdirs();
         }
         socket = new DatagramSocket(port);
         running = true;
@@ -106,7 +107,7 @@ public class UdpServerWorker implements Runnable {
     }
 
     public void setCipherKey(String cipherKey) {
-        this.cipherKey = cipherKey != null && !cipherKey.trim().isEmpty() ? cipherKey.trim() : VigenereCipher.DEFAULT_KEY;
+        this.cipherKey = VigenereCipher.normalizeKey(cipherKey);
     }
 
     @Override
@@ -118,7 +119,6 @@ public class UdpServerWorker implements Runnable {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                // Sao chép byte thực tế nhận được để xử lý trong thread pool
                 int length = packet.getLength();
                 byte[] dataCopy = new byte[length];
                 System.arraycopy(packet.getData(), packet.getOffset(), dataCopy, 0, length);
@@ -140,9 +140,6 @@ public class UdpServerWorker implements Runnable {
         }
     }
 
-    /**
-     * Phân loại và xử lý từng gói tin nhận được từ Client.
-     */
     public void handlePacket(byte[] data, InetAddress clientAddress, int clientPort) {
         String rawMessage = new String(data, StandardCharsets.UTF_8);
         String clientIp = clientAddress.getHostAddress();
@@ -159,7 +156,6 @@ public class UdpServerWorker implements Runnable {
                 return;
             }
 
-            // Gói tin không xác định
             log("[WARN] Nhan goi tin khong hop le tu " + clientIp + ":" + clientPort);
             sendResponse(UdpProtocol.createErrorMessage("Dinh dang goi tin khong hop le"), clientAddress, clientPort);
 
@@ -169,10 +165,6 @@ public class UdpServerWorker implements Runnable {
         }
     }
 
-    /**
-     * Tích hợp xử lý trọn vẹn gói tin DATA (SRV-03 / SRV-04):
-     * Bóc tách -> Mã hóa -> Lưu file -> Tìm HELLO -> Ghi CSDL -> Gửi phản hồi RESULT/ERROR.
-     */
     private void processDataPacket(String rawMessage, String clientIp, InetAddress clientAddress, int clientPort) {
         UdpProtocol.DataPayload payload;
         try {
@@ -188,52 +180,46 @@ public class UdpServerWorker implements Runnable {
         String originalContent = payload.getContent();
 
         try {
-            // 1. Mã hóa văn bản với Server Key
             String currentKey = this.cipherKey;
             String encryptedContent = VigenereCipher.encrypt(originalContent, currentKey);
 
-            // 2. Lưu file mã hóa theo chế độ TEXT hoặc BINARY
-            File targetFile = new File(storageDir, fileName);
-            FileHelper.writeFile(targetFile, encryptedContent, mode);
+            File targetFile = resolveSafeStorageFile(fileName);
+            String readEncrypted;
+            // EX-06: Đồng bộ hóa thao tác ghi/đọc trên cùng một tên file khi nhiều Client gửi đồng thời
+            synchronized (getFileLock(fileName)) {
+                FileHelper.writeFile(targetFile, encryptedContent, mode);
+                // BR-01: Đọc ngược lại bản mã từ file trên đĩa trước khi giải mã
+                readEncrypted = FileHelper.readFile(targetFile, mode);
+            }
 
-            // 3. Đọc lại file kiểm chứng (Round-trip) và giải mã để xác thực
-            String readEncrypted = FileHelper.readFile(targetFile, mode);
             String decryptedContent = VigenereCipher.decrypt(readEncrypted, currentKey);
+            List<Integer> helloPositionsList = KeywordFinder.findHelloIndices(decryptedContent);
+            String positionsDisplay = helloPositionsList.isEmpty()
+                    ? UdpProtocol.MSG_NOT_FOUND
+                    : "[" + KeywordFinder.formatPositions(helloPositionsList) + "]";
 
-            // 4. Tìm kiếm từ khóa "HELLO" trong nội dung đã giải mã (hoặc nguyên bản)
-            List<Integer> helloPositionsList = KeywordFinder.findHelloPositions(decryptedContent);
-            String positionsStr = KeywordFinder.formatPositions(helloPositionsList);
-
-            // 5. Lưu bản ghi lịch sử vào CSDL an toàn qua PreparedStatement (SRV-04 / CORE-06)
             HistoryRecord record = new HistoryRecord(
                     clientIp,
                     fileName,
                     mode.name(),
                     originalContent,
                     encryptedContent,
-                    positionsStr
+                    positionsDisplay
             );
+
             boolean dbSaved = dbHelper.saveHistory(record);
             if (dbSaved) {
-                log("[DB] Da luu ban ghi lich su ID=" + record.getId() + " cho client " + clientIp);
-                if (recordListener != null) {
-                    recordListener.accept(record);
-                }
+                log("[DB] Da luu ban ghi ID=" + record.getId() + " (" + mode.name() + " / " + fileName + ") tu " + clientIp);
             } else {
-                log("[WARN] Khong the luu ban ghi vao CSDL cho client " + clientIp);
+                log("[WARN] Loi luu CSDL (EX-05) cho client " + clientIp + " nhung van tiep tuc phan hoi ket qua UDP.");
+            }
+            if (recordListener != null) {
+                recordListener.accept(record);
             }
 
-            // 6. Đóng gói bản tin phản hồi RESULT (SRV-04)
-            String responseMessage;
-            if (helloPositionsList.isEmpty()) {
-                responseMessage = UdpProtocol.createResultNotFoundMessage();
-            } else {
-                responseMessage = UdpProtocol.createResultFoundMessage(positionsStr);
-            }
-
-            // 7. Gửi gói tin phản hồi về Client
+            String responseMessage = UdpProtocol.createResultMessage(helloPositionsList);
             sendResponse(responseMessage, clientAddress, clientPort);
-            log("[SUCCESS] Da phan hoi goi tin ve " + clientIp + ":" + clientPort + " -> " + responseMessage);
+            log("[SUCCESS] Da phan hoi toi " + clientIp + ":" + clientPort + " -> " + responseMessage);
 
         } catch (IOException e) {
             log("[ERROR] Loi I/O khi xu ly file " + fileName + ": " + e.getMessage());
@@ -246,9 +232,19 @@ public class UdpServerWorker implements Runnable {
         }
     }
 
-    /**
-     * Gửi gói tin UDP chứa phản hồi UTF-8 về địa chỉ IP và Port của Client.
-     */
+    private File resolveSafeStorageFile(String safeFileName) throws IOException {
+        Path baseDir = storageDir.toPath().toAbsolutePath().normalize();
+        Path resolved = baseDir.resolve(safeFileName).normalize();
+        if (!resolved.startsWith(baseDir)) {
+            throw new IOException("Duong dan file khong hop le ngoai thu muc luu tru: " + safeFileName);
+        }
+        return resolved.toFile();
+    }
+
+    private Object getFileLock(String fileName) {
+        return fileLocks.computeIfAbsent(fileName, k -> new Object());
+    }
+
     public void sendResponse(String message, InetAddress targetAddress, int targetPort) {
         if (socket == null || socket.isClosed()) {
             return;

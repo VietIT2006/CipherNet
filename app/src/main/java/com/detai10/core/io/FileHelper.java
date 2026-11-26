@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -36,6 +37,7 @@ public final class FileHelper {
     }
 
     public static void writeTextFile(File file, String content) throws IOException {
+        validateFileArg(file);
         ensureParentDirs(file);
         try (BufferedWriter writer = new BufferedWriter(
                 new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
@@ -47,6 +49,7 @@ public final class FileHelper {
     }
 
     public static String readTextFile(File file) throws IOException {
+        validateReadableFile(file);
         StringBuilder sb = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
@@ -60,6 +63,7 @@ public final class FileHelper {
     }
 
     public static void writeBinaryFile(File file, String content) throws IOException {
+        validateFileArg(file);
         ensureParentDirs(file);
         try (DataOutputStream dos = new DataOutputStream(
                 new BufferedOutputStream(new FileOutputStream(file)))) {
@@ -69,9 +73,12 @@ public final class FileHelper {
     }
 
     public static String readBinaryFile(File file) throws IOException {
+        validateReadableFile(file);
         try (DataInputStream dis = new DataInputStream(
                 new BufferedInputStream(new FileInputStream(file)))) {
             return dis.readUTF();
+        } catch (EOFException e) {
+            throw new IOException("File nhi phan bi hong hoac rong: " + file.getName(), e);
         }
     }
 
@@ -88,6 +95,19 @@ public final class FileHelper {
             return readBinaryFile(file);
         } else {
             return readTextFile(file);
+        }
+    }
+
+    private static void validateFileArg(File file) throws IOException {
+        if (file == null) {
+            throw new IOException("Duong dan file khong duoc null");
+        }
+    }
+
+    private static void validateReadableFile(File file) throws IOException {
+        validateFileArg(file);
+        if (!file.exists() || !file.isFile()) {
+            throw new IOException("Khong tim thay file de doc: " + file.getAbsolutePath());
         }
     }
 }

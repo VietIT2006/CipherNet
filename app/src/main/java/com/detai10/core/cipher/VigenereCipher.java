@@ -1,15 +1,13 @@
 package com.detai10.core.cipher;
 
-import java.util.Locale;
-
 /**
- * Thuật toán mã hóa & giải mã đa bảng thay thế Vigenère.
+ * Thuật toán mã hóa và giải mã đa bảng thay thế Vigenère.
  * <p>
- * Tuân thủ nghiêm ngặt Quy tắc 4 (Quy chuẩn dự án):
- * - Chỉ dịch chuyển chữ cái tiếng Anh (A-Z, a-z).
+ * Tuân thủ nghiêm ngặt Quy tắc 4 & SRS FR-02 / EX-04:
+ * - Chỉ dịch chuyển chữ cái tiếng Anh (A-Z, a-z) theo modulo 26.
  * - Bảo toàn nguyên vẹn số (0-9), khoảng trắng, dấu câu, ký hiệu đặc biệt, ký tự xuống dòng.
- * - Con trỏ khóa (key index) KHÔNG được tăng bước khi gặp ký tự không phải chữ cái.
- * - Khóa tự động chuẩn hóa chỉ giữ lại các chữ cái và chuyển thành chữ hoa.
+ * - Con trỏ khóa (keyIndex) KHÔNG được tăng bước khi gặp ký tự không phải chữ cái.
+ * - Khóa rỗng hoặc không chứa chữ cái tiếng Anh sẽ ném {@link IllegalArgumentException}.
  */
 public final class VigenereCipher {
 
@@ -20,87 +18,76 @@ public final class VigenereCipher {
     }
 
     /**
-     * Chuẩn hóa khóa: chỉ giữ lại chữ cái và chuyển về chữ hoa.
+     * Chuẩn hóa khóa: chỉ giữ lại chữ cái tiếng Anh [A-Za-z] và chuyển về chữ hoa.
+     *
+     * @param key Chuỗi khóa đầu vào
+     * @return Chuỗi khóa đã chuẩn hóa (chỉ gồm chữ hoa A-Z)
+     * @throws IllegalArgumentException nếu khóa null, rỗng hoặc không chứa chữ cái nào
      */
     public static String normalizeKey(String key) {
-        if (key == null) {
-            return DEFAULT_KEY;
+        if (key == null || key.trim().isEmpty()) {
+            throw new IllegalArgumentException("Khóa Vigenère không được để trống!");
         }
         StringBuilder sb = new StringBuilder();
-        for (char c : key.toCharArray()) {
-            if (Character.isLetter(c)) {
+        for (int i = 0; i < key.length(); i++) {
+            char c = key.charAt(i);
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
                 sb.append(Character.toUpperCase(c));
             }
         }
-        return sb.length() > 0 ? sb.toString() : DEFAULT_KEY;
+        if (sb.length() == 0) {
+            throw new IllegalArgumentException("Khóa Vigenère phải chứa ít nhất một chữ cái tiếng Anh (A-Z)!");
+        }
+        return sb.toString();
     }
 
     /**
      * Mã hóa chuỗi văn bản bằng thuật toán Vigenère với khóa chỉ định.
      */
     public static String encrypt(String plainText, String key) {
-        if (plainText == null || plainText.isEmpty()) {
-            return plainText;
-        }
-
-        String validKey = normalizeKey(key);
-        StringBuilder cipherText = new StringBuilder(plainText.length());
-        int keyIndex = 0;
-        int keyLength = validKey.length();
-
-        for (int i = 0; i < plainText.length(); i++) {
-            char c = plainText.charAt(i);
-
-            if (c >= 'A' && c <= 'Z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char encrypted = (char) ('A' + (c - 'A' + shift) % 26);
-                cipherText.append(encrypted);
-                keyIndex++;
-            } else if (c >= 'a' && c <= 'z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char encrypted = (char) ('a' + (c - 'a' + shift) % 26);
-                cipherText.append(encrypted);
-                keyIndex++;
-            } else {
-                // Ký tự số, khoảng trắng, ký hiệu đặc biệt -> Giữ nguyên, không tăng keyIndex
-                cipherText.append(c);
-            }
-        }
-
-        return cipherText.toString();
+        return transform(plainText, key, true);
     }
 
     /**
      * Giải mã chuỗi văn bản đã mã hóa Vigenère về văn bản gốc ban đầu.
      */
     public static String decrypt(String cipherText, String key) {
-        if (cipherText == null || cipherText.isEmpty()) {
-            return cipherText;
+        return transform(cipherText, key, false);
+    }
+
+    private static String transform(String text, String key, boolean encryptMode) {
+        String validKey = normalizeKey(key);
+        if (text == null || text.isEmpty()) {
+            return text;
         }
 
-        String validKey = normalizeKey(key);
-        StringBuilder plainText = new StringBuilder(cipherText.length());
+        StringBuilder result = new StringBuilder(text.length());
         int keyIndex = 0;
         int keyLength = validKey.length();
 
-        for (int i = 0; i < cipherText.length(); i++) {
-            char c = cipherText.charAt(i);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
 
             if (c >= 'A' && c <= 'Z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char decrypted = (char) ('A' + (c - 'A' - shift + 26) % 26);
-                plainText.append(decrypted);
+                result.append(shiftChar(c, 'A', validKey.charAt(keyIndex % keyLength) - 'A', encryptMode));
                 keyIndex++;
             } else if (c >= 'a' && c <= 'z') {
-                int shift = validKey.charAt(keyIndex % keyLength) - 'A';
-                char decrypted = (char) ('a' + (c - 'a' - shift + 26) % 26);
-                plainText.append(decrypted);
+                result.append(shiftChar(c, 'a', validKey.charAt(keyIndex % keyLength) - 'A', encryptMode));
                 keyIndex++;
             } else {
-                plainText.append(c);
+                // Giữ nguyên ký tự số, khoảng trắng, dấu câu, tiếng Việt có dấu và không tăng keyIndex
+                result.append(c);
             }
         }
 
-        return plainText.toString();
+        return result.toString();
+    }
+
+    private static char shiftChar(char c, char base, int shift, boolean encryptMode) {
+        int offset = c - base;
+        int shifted = encryptMode
+                ? (offset + shift) % 26
+                : (offset - shift + 26) % 26;
+        return (char) (base + shifted);
     }
 }

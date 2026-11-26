@@ -30,13 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Kiểm thử chịu tải nhẹ (Lightweight Stress / Load Test) cho Server UDP (VER-04).
- * <p>
- * Tiêu chí kiểm chứng:
- * - Gửi liên tục 100 gói tin UDP đồng thời từ nhiều luồng.
- * - Server không crash, không rò rỉ socket, không tràn bộ nhớ.
- * - 100% gói tin nhận được phản hồi hợp lệ (RESULT|FOUND hoặc RESULT|NOT_FOUND).
- * - Bảng lich_su_xu_ly trong CSDL lưu trữ trọn vẹn 100 bản ghi, không bị thất thoát dữ liệu.
- * - Thời gian phản hồi trung bình (latency) đạt chuẩn < 100ms.
  */
 class UdpServerStressTest {
 
@@ -107,7 +100,6 @@ class UdpServerStressTest {
                     latencies.add(latency);
 
                     String response = new String(recvPacket.getData(), recvPacket.getOffset(), recvPacket.getLength(), StandardCharsets.UTF_8);
-
                     if (response.startsWith(UdpProtocol.PREFIX_RESULT + "|")) {
                         successResponses.incrementAndGet();
                     }
@@ -123,15 +115,12 @@ class UdpServerStressTest {
         long totalTestTime = System.currentTimeMillis() - testStartTime;
         clientPool.shutdown();
 
-        // 1. Kiểm tra toàn bộ 100 gói đã hoàn thành
         assertTrue(completedInTime, "Toàn bộ 100 gói tin phải xử lý xong trong 15 giây");
-        assertEquals(TOTAL_PACKETS, successResponses.get(), "Tất cả 100 gói tin phải nhận được phản hồi RESULT thành công");
+        assertEquals(TOTAL_PACKETS, successResponses.get(), "Tất cả 100 gói tin phải nhận được phản hồi RESULT");
 
-        // 2. Kiểm tra tính toàn vẹn CSDL (không bị race condition, không thất thoát bản ghi)
         List<HistoryRecord> historyList = dbHelper.getAllHistory();
-        assertEquals(TOTAL_PACKETS, historyList.size(), "Bảng lich_su_xu_ly phải lưu trữ chính xác 100 bản ghi giao dịch");
+        assertEquals(TOTAL_PACKETS, historyList.size(), "Bảng lich_su_xu_ly phải lưu đủ 100 bản ghi");
 
-        // 3. Tính toán các chỉ số Benchmark
         long minLatency = latencies.stream().mapToLong(Long::longValue).min().orElse(0);
         long maxLatency = latencies.stream().mapToLong(Long::longValue).max().orElse(0);
         double avgLatency = latencies.stream().mapToLong(Long::longValue).average().orElse(0.0);
@@ -141,13 +130,13 @@ class UdpServerStressTest {
         System.out.println("  KET QUA KIEM THU TAI NHE UDP SERVER (VER-04)   ");
         System.out.println("==================================================");
         System.out.println("  Tong so goi tin gui        : " + TOTAL_PACKETS);
-        System.out.println("  Phan hoi thanh cong        : " + successResponses.get() + " / " + TOTAL_PACKETS + " (100%)");
-        System.out.println("  So ban ghi CSDL da luu     : " + historyList.size() + " / " + TOTAL_PACKETS + " (100%)");
+        System.out.println("  Phan hoi thanh cong        : " + successResponses.get() + " / " + TOTAL_PACKETS);
+        System.out.println("  So ban ghi CSDL da luu     : " + historyList.size() + " / " + TOTAL_PACKETS);
         System.out.println("  Tong thoi gian chay        : " + totalTestTime + " ms");
         System.out.println("  Thoi gian phan hoi nho nhat: " + minLatency + " ms");
         System.out.println("  Thoi gian phan hoi lon nhat: " + maxLatency + " ms");
-        System.out.printf ("  Thoi gian phan hoi trung binh: %.2f ms (Tieu chuan: < 100ms)\n", avgLatency);
-        System.out.printf ("  Thong luong (Throughput)   : %.2f req/s\n", throughput);
+        System.out.printf("  Thoi gian phan hoi trung binh: %.2f ms (Tieu chuan: < 100ms)\n", avgLatency);
+        System.out.printf("  Thong luong (Throughput)   : %.2f req/s\n", throughput);
         System.out.println("==================================================");
 
         assertTrue(avgLatency < 100.0, "Độ trễ trung bình (" + avgLatency + "ms) phải nhỏ hơn 100ms");

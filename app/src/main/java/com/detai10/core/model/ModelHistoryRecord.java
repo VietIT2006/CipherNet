@@ -13,14 +13,14 @@ public class ModelHistoryRecord extends HistoryRecord {
         super();
     }
 
-    public ModelHistoryRecord(String clientIp, String fileName, String fileMode,
+    public ModelHistoryRecord(String clientIp, String fileName, String ioMode,
                               String originalContent, String encryptedContent, String helloPositions) {
-        super(clientIp, fileName, fileMode, originalContent, encryptedContent, helloPositions);
+        super(clientIp, fileName, ioMode, originalContent, encryptedContent, helloPositions);
     }
 
-    public ModelHistoryRecord(int id, String clientIp, String fileName, String fileMode,
+    public ModelHistoryRecord(long id, String clientIp, String fileName, String ioMode,
                               String originalContent, String encryptedContent, String helloPositions,
                               Timestamp createdAt) {
-        super(id, clientIp, fileName, fileMode, originalContent, encryptedContent, helloPositions, createdAt);
+        super(id, clientIp, fileName, ioMode, originalContent, encryptedContent, helloPositions, createdAt);
     }
 }
