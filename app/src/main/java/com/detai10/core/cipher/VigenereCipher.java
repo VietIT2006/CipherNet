@@ -7,7 +7,7 @@ package com.detai10.core.cipher;
  * - Chỉ dịch chuyển chữ cái tiếng Anh (A-Z, a-z) theo modulo 26.
  * - Bảo toàn nguyên vẹn số (0-9), khoảng trắng, dấu câu, ký hiệu đặc biệt, ký tự xuống dòng.
  * - Con trỏ khóa (keyIndex) KHÔNG được tăng bước khi gặp ký tự không phải chữ cái.
- * - Khóa rỗng hoặc không chứa chữ cái tiếng Anh sẽ ném {@link IllegalArgumentException}.
+ * - Khóa rỗng hoặc không chứa chữ cái tiếng Anh, hoặc văn bản null sẽ ném {@link IllegalArgumentException}.
  */
 public final class VigenereCipher {
 
@@ -57,8 +57,11 @@ public final class VigenereCipher {
 
     private static String transform(String text, String key, boolean encryptMode) {
         String validKey = normalizeKey(key);
-        if (text == null || text.isEmpty()) {
-            return text;
+        if (text == null) {
+            throw new IllegalArgumentException("Văn bản đầu vào không được null.");
+        }
+        if (text.isEmpty()) {
+            return "";
         }
 
         StringBuilder result = new StringBuilder(text.length());

@@ -30,7 +30,8 @@ import java.util.function.Consumer;
  * - BR-01: Bắt buộc đọc ngược bản mã từ file trên đĩa rồi mới giải mã để kiểm chứng I/O.
  * - NFR-02: Chuẩn hóa và xác thực đường dẫn file nằm trong thư mục {@code storageDir}.
  * - EX-06: Đồng bộ hóa thao tác ghi/đọc trên cùng một tên file khi nhiều Client gửi đồng thời.
- * - EX-05: Xử lý lỗi CSDL hoặc I/O an toàn, ghi log và phản hồi {@code ERROR|...} không sập Server.
+ * - EX-05: Xử lý lỗi CSDL an toàn (ghi log cảnh báo và tiếp tục phản hồi UDP không sập Server);
+ *          lỗi I/O hoặc định dạng gói tin phản hồi {@code ERROR|...}.
  */
 public class UdpServerWorker implements Runnable {
 

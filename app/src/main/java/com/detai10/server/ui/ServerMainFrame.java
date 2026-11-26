@@ -302,6 +302,18 @@ public class ServerMainFrame extends JFrame {
         });
     }
 
+    public boolean isServerRunning() {
+        return worker != null && worker.isRunning();
+    }
+
+    public void appendLog(String message) {
+        appendLogAsync(message);
+    }
+
+    public void clearHistoryRows() {
+        SwingUtilities.invokeLater(() -> historyTableModel.setRowCount(0));
+    }
+
     private void appendLogAsync(String message) {
         SwingUtilities.invokeLater(() -> consoleArea.append(message + "\n"));
     }

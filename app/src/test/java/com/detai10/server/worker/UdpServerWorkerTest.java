@@ -181,4 +181,35 @@ class UdpServerWorkerTest {
         String response = sendAndReceive("DATA|TEXT_THIEU_THAM_SO");
         assertTrue(response.startsWith("ERROR|"));
     }
+
+    @Test
+    @DisplayName("EX-05: Lỗi ghi CSDL không làm sập Server và vẫn trả phản hồi RESULT về Client")
+    void testDatabaseFailureGracefulFallback() throws Exception {
+        DatabaseHelper failingDb = new DatabaseHelper("jdbc:h2:mem:ex05_test;DB_CLOSE_DELAY=-1", "sa", "") {
+            @Override
+            public boolean saveHistory(HistoryRecord record) {
+                return false;
+            }
+        };
+        java.util.List<String> logs = new java.util.concurrent.CopyOnWriteArrayList<>();
+        UdpServerWorker workerWithBrokenDb = new UdpServerWorker(0, "SECRETKEY", tempStorageDir, failingDb, logs::add, null);
+        try {
+            workerWithBrokenDb.start();
+            int port = workerWithBrokenDb.getLocalPort();
+
+            String msg = UdpProtocol.createDataMessage(FileMode.TEXT, "ex05.txt", "Say HELLO when DB fails");
+            byte[] bytes = msg.getBytes(StandardCharsets.UTF_8);
+            clientSocket.send(new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), port));
+
+            byte[] buf = new byte[4096];
+            DatagramPacket resp = new DatagramPacket(buf, buf.length);
+            clientSocket.receive(resp);
+            String respStr = new String(resp.getData(), resp.getOffset(), resp.getLength(), StandardCharsets.UTF_8);
+
+            assertEquals("RESULT|OK|Vi tri HELLO: [4]", respStr);
+            assertTrue(logs.stream().anyMatch(l -> l.contains("EX-05")));
+        } finally {
+            workerWithBrokenDb.stop();
+        }
+    }
 }
