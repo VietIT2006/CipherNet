@@ -1,7 +1,9 @@
 package com.detai10.server.worker;
 
+import com.detai10.core.cipher.VigenereCipher;
 import com.detai10.core.db.DatabaseHelper;
 import com.detai10.core.db.HistoryRecord;
+import com.detai10.core.io.FileHelper;
 import com.detai10.core.model.FileMode;
 import com.detai10.core.protocol.UdpProtocol;
 import org.junit.jupiter.api.AfterEach;
@@ -24,7 +26,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -211,5 +215,61 @@ class UdpServerWorkerTest {
         } finally {
             workerWithBrokenDb.stop();
         }
+    }
+
+    @Test
+    @DisplayName("SRV-03: executeCorePipeline chế độ TEXT trả về ProcessingResult toàn vẹn và hoàn tất < 100ms")
+    void testExecuteCorePipelineTextMode() throws Exception {
+        String content = "Xin chào! HELLO|UDP và hello 2026";
+        UdpProtocol.DataPayload payload = UdpProtocol.parseDataPacket(
+                UdpProtocol.createDataMessage(FileMode.TEXT, "pipeline_text.txt", content));
+
+        UdpServerWorker.ProcessingResult result = serverWorker.executeCorePipeline(payload);
+
+        assertEquals(FileMode.TEXT, result.getMode());
+        assertEquals("pipeline_text.txt", result.getFileName());
+        assertEquals(content, result.getOriginalContent());
+        assertNotEquals(content, result.getEncryptedContent());
+        assertEquals(result.getEncryptedContent(), result.getReadBackEncryptedContent());
+        assertEquals(content, result.getDecryptedContent());
+        assertTrue(result.isIntegrityVerified());
+        assertTrue(result.getSavedFile().exists());
+        assertEquals(result.getEncryptedContent(), FileHelper.readTextFile(result.getSavedFile()));
+        assertEquals(VigenereCipher.encrypt(content, "SECRETKEY"), result.getEncryptedContent());
+        assertEquals(List.of(10, 23), result.getHelloPositions());
+        assertEquals("[10, 23]", result.getPositionsDisplay());
+        assertTrue(result.getElapsedMs() < 100, "Pipeline TEXT phải hoàn tất < 100ms, thực tế: " + result.getElapsedMs() + "ms");
+    }
+
+    @Test
+    @DisplayName("SRV-03: executeCorePipeline chế độ BINARY (có và không có HELLO) toàn vẹn và hoàn tất < 100ms")
+    void testExecuteCorePipelineBinaryMode() throws Exception {
+        String withHello = "Binary|HELLO|DataStream 2026";
+        UdpServerWorker.ProcessingResult found = serverWorker.executeCorePipeline(
+                FileMode.BINARY, "pipeline_bin_ok.dat", withHello);
+
+        assertEquals(FileMode.BINARY, found.getMode());
+        assertTrue(found.isIntegrityVerified());
+        assertEquals(found.getEncryptedContent(), FileHelper.readBinaryFile(found.getSavedFile()));
+        assertEquals(List.of(7), found.getHelloPositions());
+        assertEquals("[7]", found.getPositionsDisplay());
+        assertTrue(found.getElapsedMs() < 100, "Pipeline BINARY phải hoàn tất < 100ms, thực tế: " + found.getElapsedMs() + "ms");
+
+        String withoutHello = "Du lieu nhi phan khong chua tu khoa";
+        UdpServerWorker.ProcessingResult notFound = serverWorker.executeCorePipeline(
+                FileMode.BINARY, "pipeline_bin_none.dat", withoutHello);
+
+        assertTrue(notFound.isIntegrityVerified());
+        assertTrue(notFound.getHelloPositions().isEmpty());
+        assertEquals(UdpProtocol.MSG_NOT_FOUND, notFound.getPositionsDisplay());
+        assertTrue(notFound.getElapsedMs() < 100, "Pipeline BINARY không có từ khóa phải hoàn tất < 100ms");
+    }
+
+    @Test
+    @DisplayName("SRV-03: executeCorePipeline từ chối payload null và tên file Path Traversal")
+    void testExecuteCorePipelineRejectsInvalidInputs() {
+        assertThrows(IllegalArgumentException.class, () -> serverWorker.executeCorePipeline(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> serverWorker.executeCorePipeline(FileMode.TEXT, "../escape.txt", "HELLO"));
     }
 }

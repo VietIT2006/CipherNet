@@ -122,4 +122,12 @@ class KeywordFinderTest {
         String text = "Say Hello to everyone";
         assertEquals(KeywordFinder.findHelloIndices(text), KeywordFinder.findHelloPositions(text));
     }
+
+    @Test
+    @DisplayName("Kiểm tra findPositions(text) và findPositions(text, keyword) hoạt động đồng nhất")
+    void testFindPositionsOverloads() {
+        String text = "Hello world, hello UDP!";
+        assertEquals(List.of(0, 13), KeywordFinder.findPositions(text));
+        assertEquals(List.of(19), KeywordFinder.findPositions(text, "udp"));
+    }
 }
