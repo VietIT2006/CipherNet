@@ -16,7 +16,10 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -176,41 +179,25 @@ public class UdpServerWorker implements Runnable {
             return;
         }
 
-        FileMode mode = payload.getMode();
         String fileName = payload.getFileName();
-        String originalContent = payload.getContent();
-
         try {
-            String currentKey = this.cipherKey;
-            String encryptedContent = VigenereCipher.encrypt(originalContent, currentKey);
-
-            File targetFile = resolveSafeStorageFile(fileName);
-            String readEncrypted;
-            // EX-06: Đồng bộ hóa thao tác ghi/đọc trên cùng một tên file khi nhiều Client gửi đồng thời
-            synchronized (getFileLock(fileName)) {
-                FileHelper.writeFile(targetFile, encryptedContent, mode);
-                // BR-01: Đọc ngược lại bản mã từ file trên đĩa trước khi giải mã
-                readEncrypted = FileHelper.readFile(targetFile, mode);
-            }
-
-            String decryptedContent = VigenereCipher.decrypt(readEncrypted, currentKey);
-            List<Integer> helloPositionsList = KeywordFinder.findHelloIndices(decryptedContent);
-            String positionsDisplay = helloPositionsList.isEmpty()
-                    ? UdpProtocol.MSG_NOT_FOUND
-                    : "[" + KeywordFinder.formatPositions(helloPositionsList) + "]";
+            ProcessingResult result = executeCorePipeline(payload);
+            log("[PIPELINE] Hoan tat Cipher -> File I/O -> Search cho "
+                    + result.getFileName() + " (" + result.getMode() + ") trong " + result.getElapsedMs() + " ms");
 
             HistoryRecord record = new HistoryRecord(
                     clientIp,
-                    fileName,
-                    mode.name(),
-                    originalContent,
-                    encryptedContent,
-                    positionsDisplay
+                    result.getFileName(),
+                    result.getMode().name(),
+                    result.getOriginalContent(),
+                    result.getEncryptedContent(),
+                    result.getPositionsDisplay()
             );
 
             boolean dbSaved = dbHelper.saveHistory(record);
             if (dbSaved) {
-                log("[DB] Da luu ban ghi ID=" + record.getId() + " (" + mode.name() + " / " + fileName + ") tu " + clientIp);
+                log("[DB] Da luu ban ghi ID=" + record.getId() + " (" + result.getMode().name()
+                        + " / " + result.getFileName() + ") tu " + clientIp);
             } else {
                 log("[WARN] Loi luu CSDL (EX-05) cho client " + clientIp + " nhung van tiep tuc phan hoi ket qua UDP.");
             }
@@ -218,7 +205,7 @@ public class UdpServerWorker implements Runnable {
                 recordListener.accept(record);
             }
 
-            String responseMessage = UdpProtocol.createResultMessage(helloPositionsList);
+            String responseMessage = UdpProtocol.createResultMessage(result.getHelloPositions());
             sendResponse(responseMessage, clientAddress, clientPort);
             log("[SUCCESS] Da phan hoi toi " + clientIp + ":" + clientPort + " -> " + responseMessage);
 
@@ -230,6 +217,165 @@ public class UdpServerWorker implements Runnable {
             log("[ERROR] Loi xu ly nghiep vu cho client " + clientIp + ": " + e.getMessage());
             sendResponse(UdpProtocol.createErrorMessage("Loi may chu: " + e.getMessage()),
                     clientAddress, clientPort);
+        }
+    }
+
+    /**
+     * Thực thi trọn vẹn Core Processing Pipeline (SRV-03):
+     * Mã hóa Vigenère -> Ghi file vào {@code storageDir} -> Đọc lại từ đĩa (BR-01)
+     * -> Kiểm chứng toàn vẹn I/O -> Giải mã -> Tìm tất cả vị trí từ khóa "HELLO".
+     *
+     * @param payload dữ liệu gói {@code DATA} đã phân tách an toàn.
+     * @return đối tượng {@link ProcessingResult} trung gian phục vụ lưu CSDL và phản hồi UDP.
+     * @throws IllegalArgumentException nếu payload null hoặc tên file không hợp lệ (NFR-02).
+     * @throws IOException              nếu xảy ra lỗi đọc/ghi file hoặc dữ liệu kiểm chứng không khớp.
+     */
+    public ProcessingResult executeCorePipeline(UdpProtocol.DataPayload payload) throws IOException {
+        if (payload == null) {
+            throw new IllegalArgumentException("Payload DATA khong duoc null");
+        }
+        return executeCorePipeline(payload.getMode(), payload.getFileName(), payload.getContent());
+    }
+
+    /**
+     * Thực thi Core Processing Pipeline (SRV-03) từ các tham số bóc tách của gói {@code DATA}.
+     *
+     * @param mode            chế độ lưu trữ ({@link FileMode#TEXT} hoặc {@link FileMode#BINARY}).
+     * @param fileName        tên file đích trong thư mục lưu trữ trên Server.
+     * @param originalContent nội dung gốc từ Client.
+     * @return kết quả trung gian {@link ProcessingResult}.
+     * @throws IllegalArgumentException nếu tên file không hợp lệ (NFR-02).
+     * @throws IOException              nếu lỗi I/O hoặc round-trip verification thất bại.
+     */
+    public ProcessingResult executeCorePipeline(FileMode mode, String fileName, String originalContent) throws IOException {
+        long startNanos = System.nanoTime();
+        FileMode safeMode = mode != null ? mode : FileMode.TEXT;
+        String safeFileName = UdpProtocol.sanitizeFileName(fileName);
+        String safeContent = originalContent != null ? originalContent : "";
+
+        // Bước 1: Mã hóa nội dung bằng Key hiện tại trên Server
+        String currentKey = this.cipherKey;
+        String encryptedContent = VigenereCipher.encrypt(safeContent, currentKey);
+
+        // Bước 2: Ghi file vào storageDir (server_storage/) và đọc ngược lại từ đĩa để kiểm chứng I/O (BR-01, EX-06)
+        File targetFile = resolveSafeStorageFile(safeFileName);
+        String readEncrypted;
+        synchronized (getFileLock(safeFileName)) {
+            FileHelper.writeFile(targetFile, encryptedContent, safeMode);
+            readEncrypted = FileHelper.readFile(targetFile, safeMode);
+        }
+
+        // Bước 3: Kiểm chứng toàn vẹn Round-trip File I/O
+        if (!encryptedContent.equals(readEncrypted)) {
+            throw new IOException("Kiem chung toan ven File I/O that bai cho file '"
+                    + safeFileName + "': du lieu doc lai khong khop ban ma da ghi.");
+        }
+
+        // Bước 4: Giải mã dữ liệu vừa đọc từ đĩa và đối chiếu lại với nội dung gốc
+        String decryptedContent = VigenereCipher.decrypt(readEncrypted, currentKey);
+        if (!safeContent.equals(decryptedContent)) {
+            throw new IOException("Kiem chung toan ven giai ma Vigenere that bai cho file '"
+                    + safeFileName + "': ban giai ma khong khop noi dung goc.");
+        }
+
+        // Bước 5: Tìm tất cả vị trí xuất hiện của từ khóa "HELLO"
+        List<Integer> helloPositions = KeywordFinder.findPositions(decryptedContent);
+        String positionsDisplay = helloPositions.isEmpty()
+                ? UdpProtocol.MSG_NOT_FOUND
+                : "[" + KeywordFinder.formatPositions(helloPositions) + "]";
+
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+        return new ProcessingResult(
+                safeMode,
+                safeFileName,
+                targetFile,
+                safeContent,
+                encryptedContent,
+                readEncrypted,
+                decryptedContent,
+                helloPositions,
+                positionsDisplay,
+                elapsedMs
+        );
+    }
+
+    /**
+     * Đối tượng kết quả trung gian bất biến của Core Processing Pipeline (SRV-03),
+     * dùng để bàn giao dữ liệu đã kiểm chứng toàn vẹn cho khâu lưu CSDL và phản hồi UDP (SRV-04).
+     */
+    public static final class ProcessingResult {
+        private final FileMode mode;
+        private final String fileName;
+        private final File savedFile;
+        private final String originalContent;
+        private final String encryptedContent;
+        private final String readBackEncryptedContent;
+        private final String decryptedContent;
+        private final List<Integer> helloPositions;
+        private final String positionsDisplay;
+        private final long elapsedMs;
+
+        public ProcessingResult(FileMode mode, String fileName, File savedFile,
+                                String originalContent, String encryptedContent,
+                                String readBackEncryptedContent, String decryptedContent,
+                                List<Integer> helloPositions, String positionsDisplay, long elapsedMs) {
+            this.mode = mode;
+            this.fileName = fileName;
+            this.savedFile = savedFile;
+            this.originalContent = originalContent;
+            this.encryptedContent = encryptedContent;
+            this.readBackEncryptedContent = readBackEncryptedContent;
+            this.decryptedContent = decryptedContent;
+            this.helloPositions = helloPositions == null
+                    ? Collections.emptyList()
+                    : Collections.unmodifiableList(new ArrayList<>(helloPositions));
+            this.positionsDisplay = positionsDisplay;
+            this.elapsedMs = elapsedMs;
+        }
+
+        public FileMode getMode() {
+            return mode;
+        }
+
+        public String getFileName() {
+            return fileName;
+        }
+
+        public File getSavedFile() {
+            return savedFile;
+        }
+
+        public String getOriginalContent() {
+            return originalContent;
+        }
+
+        public String getEncryptedContent() {
+            return encryptedContent;
+        }
+
+        public String getReadBackEncryptedContent() {
+            return readBackEncryptedContent;
+        }
+
+        public String getDecryptedContent() {
+            return decryptedContent;
+        }
+
+        public List<Integer> getHelloPositions() {
+            return helloPositions;
+        }
+
+        public String getPositionsDisplay() {
+            return positionsDisplay;
+        }
+
+        public long getElapsedMs() {
+            return elapsedMs;
+        }
+
+        public boolean isIntegrityVerified() {
+            return Objects.equals(encryptedContent, readBackEncryptedContent)
+                    && Objects.equals(originalContent, decryptedContent);
         }
     }
 

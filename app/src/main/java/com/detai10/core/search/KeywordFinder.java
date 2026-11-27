@@ -53,6 +53,27 @@ public final class KeywordFinder {
     }
 
     /**
+     * Alias chuẩn hóa tìm toàn bộ vị trí xuất hiện của từ khóa mặc định "HELLO" (SRV-03).
+     *
+     * @param text Chuỗi văn bản cần quét tìm
+     * @return Danh sách các chỉ số index (0-based) xuất hiện từ khóa "HELLO".
+     */
+    public static List<Integer> findPositions(String text) {
+        return findHelloIndices(text);
+    }
+
+    /**
+     * Alias chuẩn hóa tìm toàn bộ vị trí xuất hiện của một từ khóa bất kỳ (không phân biệt hoa/thường).
+     *
+     * @param text    Chuỗi văn bản nguồn
+     * @param keyword Từ khóa cần tìm kiếm
+     * @return Danh sách các chỉ số index (0-based).
+     */
+    public static List<Integer> findPositions(String text, String keyword) {
+        return findKeywordIndices(text, keyword);
+    }
+
+    /**
      * Quét và tìm tất cả các vị trí xuất hiện của một từ khóa bất kỳ trong văn bản (case-insensitive).
      * <p>
      * Thuật toán sử dụng bước nhảy {@code fromIndex = foundIndex + 1} để đảm bảo không bỏ sót bất kỳ lần xuất hiện nào,
