@@ -19,6 +19,8 @@ import java.util.Properties;
  * Khớp lược đồ SRS Mục 3.2 (bảng {@code lich_su_xu_ly} với cột {@code io_mode}).
  * Sử dụng 100% {@link PreparedStatement} với tham số {@code ?} để chống SQL Injection.
  * Không import thư viện giao diện AWT/Swing (Headless First).
+ *
+ * @author NguyenTuanNhut (CORE-06)
  */
 public class DatabaseHelper implements AutoCloseable {
 

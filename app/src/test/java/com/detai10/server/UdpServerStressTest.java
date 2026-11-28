@@ -30,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Kiểm thử chịu tải nhẹ (Lightweight Stress / Load Test) cho Server UDP (VER-04).
+ *
+ * @author NguyenTuanNhut (VER-04)
  */
 class UdpServerStressTest {
 

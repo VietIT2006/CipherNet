@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
- * Worker Thread chuyên trách lắng nghe và xử lý các gói tin UDP từ Client (SRV-02, SRV-03).
+ * Worker Thread chuyên trách lắng nghe và xử lý các gói tin UDP từ Client (SRV-02, SRV-03, SRV-04).
  * <p>
  * Đảm bảo các quy tắc SRS:
  * - BR-01: Bắt buộc đọc ngược bản mã từ file trên đĩa rồi mới giải mã để kiểm chứng I/O.
@@ -35,6 +35,8 @@ import java.util.function.Consumer;
  * - EX-06: Đồng bộ hóa thao tác ghi/đọc trên cùng một tên file khi nhiều Client gửi đồng thời.
  * - EX-05: Xử lý lỗi CSDL an toàn (ghi log cảnh báo và tiếp tục phản hồi UDP không sập Server);
  *          lỗi I/O hoặc định dạng gói tin phản hồi {@code ERROR|...}.
+ *
+ * @author NguyenTuanNhut (SRV-04: Tich hop luu CSDL va phan hoi RESULT/ERROR)
  */
 public class UdpServerWorker implements Runnable {
 

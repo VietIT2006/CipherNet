@@ -15,6 +15,8 @@ import java.util.Locale;
  * - Hỗ trợ cả các trường hợp lặp liên tiếp và chồng lấn (overlapping) với bước nhảy {@code fromIndex = foundIndex + 1}.
  * - Xử lý an toàn chuỗi null, chuỗi rỗng (trả về danh sách rỗng).
  * - Tuân thủ Quy tắc 1 (Headless First): Tuyệt đối không import thư viện giao diện AWT/Swing.
+ *
+ * @author NguyenTuanNhut (CORE-05)
  */
 public final class KeywordFinder {
 
