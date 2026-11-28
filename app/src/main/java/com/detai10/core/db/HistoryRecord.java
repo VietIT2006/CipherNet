@@ -5,6 +5,8 @@ import java.util.Objects;
 
 /**
  * Bản ghi đại diện cho một hàng trong bảng {@code lich_su_xu_ly} của cơ sở dữ liệu (khớp SRS Mục 3.2).
+ *
+ * @author NguyenTuanNhut (CORE-06)
  */
 public class HistoryRecord {
 
